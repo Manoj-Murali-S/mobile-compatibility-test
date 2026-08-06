@@ -91,12 +91,19 @@ export default function Home() {
             />
           )}
 
-          {/* Search Demo Link */}
-          <Link href="/search-demo" className="ml-4">
-            <Button variant="outline" size="sm">
-              Advanced Search Demo
-            </Button>
-          </Link>
+          {/* Links */}
+          <div className="ml-4 flex items-center gap-2">
+            <Link href="/search-demo">
+              <Button variant="outline" size="sm">
+                Advanced Search
+              </Button>
+            </Link>
+            <Link href="/admin">
+              <Button variant="outline" size="sm">
+                Admin Dashboard
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
