@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Heart, ShoppingCart } from 'lucide-react'
 import { useState } from 'react'
@@ -104,14 +105,16 @@ export default function MobileCard({ mobile }: MobileCardProps) {
           </div>
 
           {/* Button */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full py-2 px-4 rounded-lg bg-accent text-accent-foreground font-medium flex items-center justify-center gap-2 transition-colors hover:bg-accent/90"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            Browse
-          </motion.button>
+          <Link href={`/details/${mobile.model.replace(/\s+/g, '-')}`}>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full py-2 px-4 rounded-lg bg-accent text-accent-foreground font-medium flex items-center justify-center gap-2 transition-colors hover:bg-accent/90"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              View Details
+            </motion.button>
+          </Link>
         </div>
       </div>
     </motion.div>
