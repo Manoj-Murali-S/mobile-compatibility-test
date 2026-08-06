@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import SearchHeader from '@/components/search-header'
 import BrandTabs from '@/components/brand-tabs'
 import MobileGrid from '@/components/mobile-grid'
 import RecentSearches from '@/components/recent-searches'
 import CommandPalette from '@/components/command-palette'
+import { Button } from '@/components/ui/button'
 
 const BRANDS = [
   'Samsung',
@@ -62,11 +64,12 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
+            className="flex-1"
           >
             <SearchHeader
               value={searchQuery}
@@ -87,6 +90,13 @@ export default function Home() {
               onSelect={handleRecentSearchClick}
             />
           )}
+
+          {/* Search Demo Link */}
+          <Link href="/search-demo" className="ml-4">
+            <Button variant="outline" size="sm">
+              Advanced Search Demo
+            </Button>
+          </Link>
         </div>
       </header>
 

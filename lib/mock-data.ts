@@ -389,6 +389,8 @@ const MOCK_MOBILES: Record<string, Mobile[]> = {
   ],
 }
 
+export { MOCK_MOBILES }
+
 export function getMobilesByBrand(brand: string): Mobile[] {
   return MOCK_MOBILES[brand] || []
 }
