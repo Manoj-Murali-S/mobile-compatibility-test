@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import SearchHeader from '@/components/search-header'
 import BrandTabs from '@/components/brand-tabs'
 import MobileGrid from '@/components/mobile-grid'
+import CompatibilityExplorer from '@/components/compatibility-explorer'
 import RecentSearches from '@/components/recent-searches'
 import CommandPalette from '@/components/command-palette'
 import { Button } from '@/components/ui/button'
@@ -135,11 +136,15 @@ export default function Home() {
           </p>
         </motion.div>
 
-        {/* Mobile Grid */}
-        <MobileGrid
-          brand={selectedBrand}
-          searchQuery={searchQuery}
-        />
+        {/* Compatibility results for a searched model, or the regular brand browser */}
+        {searchQuery.trim() ? (
+          <CompatibilityExplorer query={searchQuery.trim()} />
+        ) : (
+          <MobileGrid
+            brand={selectedBrand}
+            searchQuery={searchQuery}
+          />
+        )}
       </div>
 
       {/* Command Palette */}
