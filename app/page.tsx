@@ -107,7 +107,10 @@ export default function Home() {
               onSearch={handleSearch}
               showCommandPalette={true}
               onCommandPaletteClick={() => setShowCommandPalette(true)}
-              suggestions={getAllMobiles().map((mobile) => mobile.model)}
+              suggestions={Array.from(new Set([
+                ...BRANDS,
+                ...getAllMobiles().map((mobile) => mobile.model),
+              ]))}
               onFocusChange={(focused) => setShowRecentSearches(focused && !searchQuery.trim())}
             />
           </motion.div>
