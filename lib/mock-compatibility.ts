@@ -44,12 +44,14 @@ const makeDevice = (
 const COMPATIBILITY_GROUPS: Record<string, Record<AccessoryType, CompatibilityDevice[]>> = {
   's24': {
     'tempered-glass': [
+      makeDevice('sam-s24', 'Samsung', 'Galaxy S24', 'S24 tempered glass'),
       makeDevice('nokia-5510', 'Nokia', 'Nokia 5510', 'S24 tempered glass'),
       makeDevice('mi-note-11', 'Xiaomi', 'Mi Note 11', 'S24 tempered glass'),
       makeDevice('redmi-note-13', 'Redmi', 'Redmi Note 13', 'S24 tempered glass'),
       makeDevice('oppo-reno-12', 'Oppo', 'Oppo Reno 12', 'S24 tempered glass'),
     ],
     'back-case': [
+      makeDevice('sam-s24', 'Samsung', 'Galaxy S24', 'S24 back case'),
       makeDevice('s24-plus', 'Samsung', 'Galaxy S24+', 'S24 back case'),
       makeDevice('s24-ultra', 'Samsung', 'Galaxy S24 Ultra', 'S24 back case'),
     ],
@@ -96,16 +98,33 @@ const ALIASES: Record<string, string> = {
   'iphone15': 'iphone-15',
 }
 
+function normalize(value: string) {
+  return value.trim().toLowerCase().replace(/[+]/g, ' plus ').replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
 export function getCompatibilityKey(query: string) {
   const normalized = query.trim().toLowerCase()
   return ALIASES[normalized] ?? Object.keys(COMPATIBILITY_GROUPS).find((key) => normalized.includes(key)) ?? normalized
 }
 
+function findSharedGroup(query: string) {
+  const normalizedQuery = normalize(query)
+  return Object.entries(COMPATIBILITY_GROUPS).find(([, categories]) =>
+    Object.values(categories).some((devices) =>
+      devices.some((device) => normalize(device.model).includes(normalizedQuery) || normalizedQuery.includes(normalize(device.model)))
+    ),
+  )
+}
+
 export function getCompatibleDevices(query: string, type: AccessoryType) {
-  const key = getCompatibilityKey(query)
-  return COMPATIBILITY_GROUPS[key]?.[type] ?? []
+  const directGroup = COMPATIBILITY_GROUPS[getCompatibilityKey(query)]
+  const sharedGroup = directGroup ? undefined : findSharedGroup(query)?.[1]
+  const devices = (directGroup ?? sharedGroup)?.[type] ?? []
+  const normalizedQuery = normalize(query)
+
+  return devices.filter((device) => !normalize(device.model).includes(normalizedQuery))
 }
 
 export function hasCompatibilityData(query: string) {
-  return Boolean(COMPATIBILITY_GROUPS[getCompatibilityKey(query)])
+  return Boolean(COMPATIBILITY_GROUPS[getCompatibilityKey(query)] ?? findSharedGroup(query))
 }
