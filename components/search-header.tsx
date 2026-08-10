@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Search, Command } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Search, Command, ArrowUpRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 interface SearchHeaderProps {
@@ -10,6 +10,8 @@ interface SearchHeaderProps {
   onSearch: (query: string) => void
   showCommandPalette: boolean
   onCommandPaletteClick: () => void
+  suggestions?: string[]
+  onFocusChange?: (focused: boolean) => void
 }
 
 export default function SearchHeader({
@@ -18,8 +20,17 @@ export default function SearchHeader({
   onSearch,
   showCommandPalette,
   onCommandPaletteClick,
+  suggestions = [],
+  onFocusChange,
 }: SearchHeaderProps) {
   const [isFocused, setIsFocused] = useState(false)
+  const filteredSuggestions = useMemo(() => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return []
+    return suggestions
+      .filter((suggestion) => suggestion.toLowerCase().includes(normalized))
+      .slice(0, 6)
+  }, [suggestions, value])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,20 +60,38 @@ export default function SearchHeader({
                   placeholder="Search for your phone model..."
                   value={value}
                   onChange={(e) => onChange(e.target.value)}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
+                  onFocus={() => {
+                    setIsFocused(true)
+                    onFocusChange?.(true)
+                  }}
+                  onBlur={() => {
+                    setIsFocused(false)
+                    onFocusChange?.(false)
+                  }}
                   className="w-full pl-12 pr-12 py-4 bg-card border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none transition-colors"
                 />
-                {showCommandPalette && (
-                  <button
-                    type="button"
-                    onClick={onCommandPaletteClick}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground text-xs font-medium flex items-center gap-1 transition-colors"
-                    title="Press Ctrl+K to open command palette"
-                  >
-                    <Command className="w-3 h-3" />
-                    <span className="hidden sm:inline">Ctrl+K</span>
-                  </button>
+                {isFocused && filteredSuggestions.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
+                    <p className="px-4 pb-2 pt-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      Matching devices
+                    </p>
+                    {filteredSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          onChange(suggestion)
+                          onSearch(suggestion)
+                          setIsFocused(false)
+                        }}
+                        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-muted"
+                      >
+                        <span>{suggestion}</span>
+                        <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
                 )}
               </motion.div>
             </div>

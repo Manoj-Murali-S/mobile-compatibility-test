@@ -14,7 +14,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { mockSystemLogs } from '@/lib/admin-mock-data'
-import { CheckCircle2, AlertCircle as AlertIcon } from 'lucide-react'
+import { AlertCircle as AlertIcon } from 'lucide-react'
+import OfflineSyncSettings from '@/components/offline-sync-settings'
 
 export default function SettingsPage() {
   return (
@@ -63,6 +64,8 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <OfflineSyncSettings />
 
       {/* System Information */}
       <Card>

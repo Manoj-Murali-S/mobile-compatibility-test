@@ -41,7 +41,7 @@ const makeDevice = (
   matchedAccessory,
 })
 
-const COMPATIBILITY_GROUPS: Record<string, Record<AccessoryType, CompatibilityDevice[]>> = {
+export const COMPATIBILITY_GROUPS: Record<string, Record<AccessoryType, CompatibilityDevice[]>> = {
   's24': {
     'tempered-glass': [
       makeDevice('sam-s24', 'Samsung', 'Galaxy S24', 'S24 tempered glass'),

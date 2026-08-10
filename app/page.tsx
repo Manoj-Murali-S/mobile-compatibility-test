@@ -10,6 +10,10 @@ import CompatibilityExplorer from '@/components/compatibility-explorer'
 import RecentSearches from '@/components/recent-searches'
 import CommandPalette from '@/components/command-palette'
 import { Button } from '@/components/ui/button'
+import { getAllMobiles } from '@/lib/mock-data'
+import { COMPATIBILITY_GROUPS } from '@/lib/mock-compatibility'
+import { MOCK_ACCESSORIES } from '@/lib/mock-accessories'
+import { getOfflineCatalog, saveOfflineCatalog, subscribeToConnectionStatus } from '@/lib/offline-store'
 
 const BRANDS = [
   'Samsung',
@@ -29,6 +33,25 @@ export default function Home() {
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [showRecentSearches, setShowRecentSearches] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
+  const [offlineReady, setOfflineReady] = useState(false)
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    getOfflineCatalog().then((catalog) => setOfflineReady(Boolean(catalog)))
+    return subscribeToConnectionStatus(setIsOnline)
+  }, [])
+
+  useEffect(() => {
+    void saveOfflineCatalog({
+      brands: BRANDS,
+      mobiles: getAllMobiles(),
+      compatibility: Object.values(COMPATIBILITY_GROUPS),
+      accessories: MOCK_ACCESSORIES,
+      settings: { selectedBrand },
+      savedAt: new Date().toISOString(),
+    }).then(() => setOfflineReady(true))
+  }, [selectedBrand])
 
   // Handle keyboard shortcut for command palette
   useEffect(() => {
@@ -63,6 +86,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background">
+      <div className="border-b border-border bg-muted/40 px-4 py-2 text-center text-xs text-muted-foreground">
+        {isOnline ? (offlineReady ? 'Online · Catalog saved for offline use' : 'Online · Preparing offline catalog…') : 'Offline mode · Using the saved local catalog'}
+      </div>
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -81,6 +107,8 @@ export default function Home() {
               onSearch={handleSearch}
               showCommandPalette={true}
               onCommandPaletteClick={() => setShowCommandPalette(true)}
+              suggestions={getAllMobiles().map((mobile) => mobile.model)}
+              onFocusChange={(focused) => setShowRecentSearches(focused && !searchQuery.trim())}
             />
           </motion.div>
 
