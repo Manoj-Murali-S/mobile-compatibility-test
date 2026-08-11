@@ -6,15 +6,22 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { getOfflineCatalog, isOffline, saveOfflineCatalog, subscribeToConnectionStatus } from '@/lib/offline-store'
+import { exportCatalogSnapshot, getStorageHealth, requestPersistentStorage } from '@/lib/catalog-db'
+import { getOfflineCatalog, isOffline, subscribeToConnectionStatus } from '@/lib/offline-store'
 
 export default function OfflineSyncSettings() {
   const [online, setOnline] = useState(true)
   const [offlineEnabled, setOfflineEnabled] = useState(true)
   const [lastSaved, setLastSaved] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [persisted, setPersisted] = useState(false)
+  const [storageUsed, setStorageUsed] = useState(0)
 
   useEffect(() => {
+    getStorageHealth().then((health) => {
+      setPersisted(health.persisted)
+      setStorageUsed(health.usage)
+    })
     setOnline(!isOffline())
     getOfflineCatalog().then((catalog) => setLastSaved(catalog?.savedAt ?? null))
     return subscribeToConnectionStatus(setOnline)
@@ -23,16 +30,20 @@ export default function OfflineSyncSettings() {
   const syncCatalog = async () => {
     setSyncing(true)
     await new Promise((resolve) => setTimeout(resolve, 700))
-    await saveOfflineCatalog({
-      brands: [],
-      mobiles: [],
-      compatibility: [],
-      accessories: [],
-      settings: { offlineEnabled },
-      savedAt: new Date().toISOString(),
-    })
+    const snapshot = await exportCatalogSnapshot()
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `mobile-catalog-sync-${new Date().toISOString().slice(0, 10)}.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
     setLastSaved(new Date().toISOString())
     setSyncing(false)
+  }
+
+  const enablePersistentStorage = async () => {
+    setPersisted(await requestPersistentStorage())
   }
 
   return (
@@ -64,14 +75,31 @@ export default function OfflineSyncSettings() {
           </div>
           <Switch checked={offlineEnabled} onCheckedChange={setOfflineEnabled} aria-label="Use offline mode" />
         </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border bg-background p-3">
+            <p className="text-xs text-muted-foreground">Database</p>
+            <p className="mt-1 font-medium">IndexedDB / Dexie</p>
+          </div>
+          <div className="rounded-lg border bg-background p-3">
+            <p className="text-xs text-muted-foreground">Storage used</p>
+            <p className="mt-1 font-medium">{storageUsed ? `${(storageUsed / 1024 / 1024).toFixed(2)} MB` : 'Calculating…'}</p>
+          </div>
+          <div className="rounded-lg border bg-background p-3">
+            <p className="text-xs text-muted-foreground">Persistence</p>
+            <p className="mt-1 font-medium">{persisted ? 'Protected' : 'Browser managed'}</p>
+          </div>
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
             {lastSaved ? `Last local snapshot: ${new Date(lastSaved).toLocaleString()}` : 'No local snapshot saved yet'}
           </p>
-          <Button onClick={syncCatalog} disabled={!online || syncing}>
+          <div className="flex flex-wrap gap-2">
+            {!persisted && <Button variant="outline" onClick={enablePersistentStorage}>Protect local storage</Button>}
+            <Button onClick={syncCatalog} disabled={!online || syncing}>
             <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'Syncing catalog…' : 'Sync online now'}
-          </Button>
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

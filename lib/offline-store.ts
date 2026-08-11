@@ -1,7 +1,5 @@
-const DB_NAME = 'mobile-compatibility-finder'
-const DB_VERSION = 1
-const STORE_NAME = 'catalog'
-const SNAPSHOT_KEY = 'catalog-snapshot'
+import { catalogDb, type CatalogBrand, type CatalogCompatibility, type CatalogMobile, type CatalogAccessory } from './catalog-db'
+import { seedCatalogIfEmpty } from './catalog-repository'
 
 export type OfflineCatalog = {
   brands: unknown[]
@@ -12,51 +10,37 @@ export type OfflineCatalog = {
   savedAt: string
 }
 
-function openDatabase(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(STORE_NAME)
-    }
-    request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error)
-  })
-}
-
 export async function saveOfflineCatalog(catalog: OfflineCatalog) {
-  if (typeof indexedDB === 'undefined') return
-  const db = await openDatabase()
-  await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite')
-    transaction.objectStore(STORE_NAME).put(catalog, SNAPSHOT_KEY)
-    transaction.oncomplete = () => resolve()
-    transaction.onerror = () => reject(transaction.error)
+  if (typeof window === 'undefined') return
+  const updatedAt = catalog.savedAt || new Date().toISOString()
+  await catalogDb.transaction('rw', catalogDb.tables, async () => {
+    await catalogDb.brands.clear(); await catalogDb.mobiles.clear(); await catalogDb.compatibility.clear(); await catalogDb.accessories.clear()
+    if (Array.isArray(catalog.brands)) await catalogDb.brands.bulkPut(catalog.brands as CatalogBrand[])
+    if (Array.isArray(catalog.mobiles)) await catalogDb.mobiles.bulkPut(catalog.mobiles as CatalogMobile[])
+    if (Array.isArray(catalog.compatibility)) await catalogDb.compatibility.bulkPut(catalog.compatibility as CatalogCompatibility[])
+    if (Array.isArray(catalog.accessories)) await catalogDb.accessories.bulkPut(catalog.accessories as CatalogAccessory[])
+    await catalogDb.settings.put({ key: 'catalog-meta', value: { ...catalog.settings, savedAt: updatedAt }, updatedAt })
   })
-  db.close()
 }
 
 export async function getOfflineCatalog(): Promise<OfflineCatalog | null> {
-  if (typeof indexedDB === 'undefined') return null
-  const db = await openDatabase()
-  const catalog = await new Promise<OfflineCatalog | null>((resolve, reject) => {
-    const request = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).get(SNAPSHOT_KEY)
-    request.onsuccess = () => resolve(request.result ?? null)
-    request.onerror = () => reject(request.error)
-  })
-  db.close()
-  return catalog
+  if (typeof window === 'undefined') return null
+  const mobiles = await catalogDb.mobiles.toArray()
+  if (!mobiles.length) return null
+  const [brands, compatibility, accessories, meta] = await Promise.all([
+    catalogDb.brands.toArray(), catalogDb.compatibility.toArray(), catalogDb.accessories.toArray(), catalogDb.settings.get('catalog-meta'),
+  ])
+  const value = (meta?.value ?? {}) as Record<string, unknown>
+  return { brands, mobiles, compatibility, accessories, settings: value, savedAt: String(value.savedAt ?? '') }
 }
 
 export async function clearOfflineCatalog() {
-  if (typeof indexedDB === 'undefined') return
-  const db = await openDatabase()
-  await new Promise<void>((resolve, reject) => {
-    const transaction = db.transaction(STORE_NAME, 'readwrite')
-    transaction.objectStore(STORE_NAME).delete(SNAPSHOT_KEY)
-    transaction.oncomplete = () => resolve()
-    transaction.onerror = () => reject(transaction.error)
-  })
-  db.close()
+  await Promise.all([catalogDb.brands.clear(), catalogDb.mobiles.clear(), catalogDb.compatibility.clear(), catalogDb.accessories.clear(), catalogDb.settings.clear()])
+}
+
+export async function hydrateOfflineCatalog() {
+  await seedCatalogIfEmpty()
+  return getOfflineCatalog()
 }
 
 export function isOffline() {
@@ -64,12 +48,7 @@ export function isOffline() {
 }
 
 export function subscribeToConnectionStatus(callback: (online: boolean) => void) {
-  const online = () => callback(true)
-  const offline = () => callback(false)
-  window.addEventListener('online', online)
-  window.addEventListener('offline', offline)
-  return () => {
-    window.removeEventListener('online', online)
-    window.removeEventListener('offline', offline)
-  }
-} 
+  const online = () => callback(true); const offline = () => callback(false)
+  window.addEventListener('online', online); window.addEventListener('offline', offline)
+  return () => { window.removeEventListener('online', online); window.removeEventListener('offline', offline) }
+}

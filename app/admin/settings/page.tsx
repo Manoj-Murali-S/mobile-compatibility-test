@@ -16,6 +16,7 @@ import {
 import { mockSystemLogs } from '@/lib/admin-mock-data'
 import { AlertCircle as AlertIcon } from 'lucide-react'
 import OfflineSyncSettings from '@/components/offline-sync-settings'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 
 export default function SettingsPage() {
   return (
@@ -66,6 +67,14 @@ export default function SettingsPage() {
       </Card>
 
       <OfflineSyncSettings />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Appearance</CardTitle>
+          <CardDescription>Choose light, dark, or follow the device theme.</CardDescription>
+        </CardHeader>
+        <CardContent><ThemeSwitcher /></CardContent>
+      </Card>
 
       {/* System Information */}
       <Card>

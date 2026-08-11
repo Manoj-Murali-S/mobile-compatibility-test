@@ -11,9 +11,8 @@ import RecentSearches from '@/components/recent-searches'
 import CommandPalette from '@/components/command-palette'
 import { Button } from '@/components/ui/button'
 import { getAllMobiles } from '@/lib/mock-data'
-import { COMPATIBILITY_GROUPS } from '@/lib/mock-compatibility'
-import { MOCK_ACCESSORIES } from '@/lib/mock-accessories'
-import { getOfflineCatalog, saveOfflineCatalog, subscribeToConnectionStatus } from '@/lib/offline-store'
+import { getOfflineCatalog, subscribeToConnectionStatus } from '@/lib/offline-store'
+import { seedCatalogIfEmpty } from '@/lib/catalog-repository'
 
 const BRANDS = [
   'Samsung',
@@ -43,15 +42,8 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    void saveOfflineCatalog({
-      brands: BRANDS,
-      mobiles: getAllMobiles(),
-      compatibility: Object.values(COMPATIBILITY_GROUPS),
-      accessories: MOCK_ACCESSORIES,
-      settings: { selectedBrand },
-      savedAt: new Date().toISOString(),
-    }).then(() => setOfflineReady(true))
-  }, [selectedBrand])
+    void seedCatalogIfEmpty().then(() => setOfflineReady(true))
+  }, [])
 
   // Handle keyboard shortcut for command palette
   useEffect(() => {
