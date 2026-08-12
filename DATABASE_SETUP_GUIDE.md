@@ -1,389 +1,325 @@
 # Mobile Compatibility Finder
-## Application and Database Setup Guide
+## Beginner Database Setup Guide
 
-## 1. Application overview
+This guide explains how the project stores mobile-phone compatibility data and how a beginner can understand the database setup.
 
-Mobile Compatibility Finder helps a mobile accessory shop find compatible products quickly. A shop employee searches for a phone model, selects an accessory category such as tempered glass or back case, and sees other devices that share the same accessory fit.
+## 1. What does the database do?
 
-The current application includes:
+The application helps a mobile shop find accessories that fit different phones.
 
-- Public catalog search with brand and model suggestions
-- Bidirectional compatibility lookup
-- Grid/list result views
-- Accessory categories and compatibility groups
-- Admin dashboard for brands, mobiles, compatibility groups, import/export, backups, and settings
-- Offline catalog snapshots using browser IndexedDB
-- Mock online sync controls in Admin → Settings
+For example:
 
-The current app uses mock TypeScript data. No real database connection is active yet.
+- Search for `Galaxy S24`.
+- Select `Tempered Glass`.
+- See other phones that use the same tempered glass.
 
-## 2. Current storage behavior
+The database stores this information so it is available after restarting the computer and can be shared between multiple shop devices.
 
-There are currently two data layers:
+## 2. Database used by this project
 
-### Mock catalog data
+This project uses **Neon PostgreSQL**.
 
-Files in `lib/` provide in-memory data for development and demos:
+Think of PostgreSQL as a collection of organized Excel sheets. Each sheet is called a **table**. Each row is one record, and each column stores one piece of information.
 
-- `mock-data.ts` — brands and mobile models
-- `mock-accessories.ts` — accessory categories and accessory items
-- `mock-compatibility.ts` — shared compatibility groups and reverse lookups
-- `admin-mock-data.ts` — admin dashboard statistics, activity, backups, and export history
+Neon hosts the database online. The Next.js application connects to Neon through the server. Database passwords must never be placed directly in browser code.
 
-Changes to these files are code changes, not user-managed database records.
+The project uses:
 
-### Offline storage
+- **Neon** — online PostgreSQL database
+- **Drizzle ORM** — safe TypeScript database queries
+- **Better Auth** — email/password user accounts
+- **IndexedDB/Dexie** — local offline cache in the browser
 
-`lib/offline-store.ts` saves a complete catalog snapshot in IndexedDB under:
+## 3. Online database versus offline storage
 
-- Database: `mobile-compatibility-finder`
-- Object store: `catalog`
-- Snapshot key: `catalog-snapshot`
+There are two storage locations:
 
-The snapshot contains brands, mobiles, compatibility data, accessories, settings, and a timestamp. IndexedDB survives browser and computer restarts, but it can be removed when the user clears site data, uses private browsing, changes browsers, or resets the device.
+### Online database
 
-The current **Sync online now** action is only a mock UI. It does not upload data until a real database and API are connected.
+Neon is the main source of truth. It allows the shop to use the same catalog from different computers and phones.
 
-## 3. Recommended production architecture
+### Offline database
 
-Use a server database as the source of truth and IndexedDB as the offline cache.
+IndexedDB stores a local copy inside the browser. It helps the application continue working when the internet is unavailable.
 
-```text
-Admin or shop user
-        |
-        v
-Next.js Server Actions / Route Handlers
-        |
-        v
-Postgres database  <---- authoritative online data
-        |
-        v
-Catalog snapshot API
-        |
-        v
-IndexedDB            <---- offline read cache and pending changes
+When the device is online:
+
+1. The app reads the latest catalog from Neon.
+2. The app saves a local copy in IndexedDB.
+3. Local changes can be uploaded during synchronization.
+
+When the device is offline:
+
+1. The app reads the saved IndexedDB copy.
+2. New changes wait locally.
+3. The changes can be synchronized after the internet returns.
+
+Clearing browser site data can remove the local copy. The online Neon database is not affected.
+
+## 4. Important environment variables
+
+The Neon integration provides the database connection values to the Vercel project.
+
+The most important variables are:
+
+```env
+DATABASE_URL=your-neon-database-connection
+BETTER_AUTH_SECRET=your-secure-secret
 ```
 
-Recommended rules:
+Do not commit these values to GitHub or write them inside React components.
 
-1. Read from IndexedDB when offline.
-2. Read fresh catalog data from the server when online.
-3. Save local edits to a pending-changes queue.
-4. Sync pending changes when the user presses **Sync online now** or when connectivity returns.
-5. Resolve conflicts using a revision number or `updatedAt` timestamp.
-6. Replace the local snapshot only after the server confirms a successful sync.
+`BETTER_AUTH_SECRET` is used to protect login sessions. It should be a long random value.
 
-## 4. Database choice
+## 5. Main database tables
 
-A PostgreSQL database is a good fit because the app has relational data:
+The current database contains these main tables:
 
-- One brand has many mobile models.
-- One mobile can belong to many compatibility groups.
-- One accessory category contains many accessories.
-- One compatibility group can connect many mobiles and accessories.
-- Admin actions and backups need audit records.
+### `shops`
 
-For a production Next.js deployment, Neon Postgres with Drizzle ORM is the recommended default. Supabase is also suitable if you want built-in authentication, storage, and a dashboard.
+Stores each mobile shop.
 
-## 5. Suggested database schema
+| Column | Meaning |
+|---|---|
+| `id` | Unique shop ID |
+| `name` | Shop name |
+| `created_at` | Date the shop was created |
 
-The following schema supports the current application without storing compatibility as duplicated arrays.
+### `catalog_mobiles`
 
-```sql
-create table brands (
-  id uuid primary key default gen_random_uuid(),
-  name text not null unique,
-  slug text not null unique,
-  logo text,
-  status text not null default 'active',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
+Stores phone models.
 
-create table mobiles (
-  id uuid primary key default gen_random_uuid(),
-  brand_id uuid not null references brands(id) on delete restrict,
-  model text not null,
-  slug text not null unique,
-  release_year integer,
-  status text not null default 'active',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (brand_id, model)
-);
+| Column | Meaning |
+|---|---|
+| `id` | Unique phone ID |
+| `shop_id` | Shop that owns the record |
+| `brand` | Samsung, Apple, Redmi, etc. |
+| `model` | Galaxy S24, iPhone 15, etc. |
+| `year` | Release year |
+| `variants` | Storage, color, or other variants |
+| `updated_at` | Last update time |
 
-create table mobile_variants (
-  id uuid primary key default gen_random_uuid(),
-  mobile_id uuid not null references mobiles(id) on delete cascade,
-  label text not null,
-  sort_order integer not null default 0
-);
+### `catalog_compatibility`
 
-create table accessory_categories (
-  id uuid primary key default gen_random_uuid(),
-  name text not null unique,
-  slug text not null unique,
-  icon text,
-  sort_order integer not null default 0
-);
+Stores which phone models are compatible with each other for an accessory type.
 
-create table accessories (
-  id uuid primary key default gen_random_uuid(),
-  category_id uuid not null references accessory_categories(id) on delete restrict,
-  name text not null,
-  description text,
-  featured boolean not null default false,
-  status text not null default 'active',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table compatibility_groups (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  slug text not null unique,
-  description text,
-  status text not null default 'active',
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-create table compatibility_group_mobiles (
-  group_id uuid not null references compatibility_groups(id) on delete cascade,
-  mobile_id uuid not null references mobiles(id) on delete cascade,
-  primary key (group_id, mobile_id)
-);
-
-create table compatibility_group_accessories (
-  group_id uuid not null references compatibility_groups(id) on delete cascade,
-  accessory_id uuid not null references accessories(id) on delete cascade,
-  primary key (group_id, accessory_id)
-);
-
-create table catalog_revisions (
-  id bigint generated always as identity primary key,
-  revision bigint not null unique,
-  created_at timestamptz not null default now()
-);
-
-create table admin_activity (
-  id uuid primary key default gen_random_uuid(),
-  action text not null,
-  entity_type text,
-  entity_id uuid,
-  metadata jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
-);
-```
-
-## 6. How compatibility lookup works
-
-The lookup should not create a separate row for every search direction. Store the relationship once through a compatibility group.
+| Column | Meaning |
+|---|---|
+| `id` | Unique compatibility ID |
+| `shop_id` | Shop that owns the record |
+| `accessory_type` | Tempered glass, case, camera protector, etc. |
+| `source_model_id` | First phone model |
+| `compatible_model_id` | Phone model with the same fit |
+| `updated_at` | Last update time |
 
 Example:
 
 ```text
-Tempered Glass Group A
-├── Samsung Galaxy S24
-├── Nokia 5510
-├── Mi Note 11
-└── Redmi Note 13
+Galaxy S24 -> Nokia 5510 -> Tempered Glass
 ```
 
-When the user searches `S24`, query the group containing Galaxy S24 and return the other mobiles in that group.
+The application can use this relationship in either direction.
 
-When the user searches `Nokia 5510`, query the same group and return Galaxy S24, Mi Note 11, and Redmi Note 13.
+### `catalog_backups`
 
-Conceptual SQL:
+Stores verified backup snapshots.
 
-```sql
-select distinct
-  m.id,
-  m.model,
-  b.name as brand_name,
-  g.name as compatibility_group
-from mobiles searched
-join compatibility_group_mobiles searched_link
-  on searched_link.mobile_id = searched.id
-join compatibility_groups g
-  on g.id = searched_link.group_id
-join compatibility_group_mobiles result_link
-  on result_link.group_id = g.id
-join mobiles m
-  on m.id = result_link.mobile_id
-join brands b
-  on b.id = m.brand_id
-where searched.slug = $1
-  and m.id <> searched.id
-  and exists (
-    select 1
-    from compatibility_group_accessories ga
-    join accessories a on a.id = ga.accessory_id
-    join accessory_categories ac on ac.id = a.category_id
-    where ga.group_id = g.id
-      and ac.slug = $2
-  )
-order by b.name, m.model;
-```
+| Column | Meaning |
+|---|---|
+| `id` | Unique backup ID |
+| `shop_id` | Shop that owns the backup |
+| `checksum` | Used to verify the backup was not changed |
+| `payload` | Backup data in JSON format |
+| `created_at` | Backup creation time |
 
-Always use parameterized queries. Do not interpolate search text directly into SQL.
+### Authentication tables
 
-## 7. Connecting Neon Postgres
+Better Auth also uses these tables:
 
-### Step 1: Provision Neon
+- `user` — registered users
+- `session` — active login sessions
+- `account` — login credentials
+- `verification` — verification records
 
-Connect Neon to the Vercel project, then obtain the project database URL from the integration environment variables. Do not hardcode credentials in source files.
+Do not manually delete these tables while authentication is enabled.
 
-Typical variable:
+## 6. How a search works
 
-```env
-DATABASE_URL=postgresql://...
-```
+When a user searches for a model:
 
-### Step 2: Install the database packages
+1. The app receives the search text.
+2. The server searches phone models globally across all brands.
+3. It finds compatibility records for the selected accessory type.
+4. It returns matching phone models.
+5. The screen displays the results.
+
+The search is not limited to the currently selected brand. Searching `R` can show brands or models such as Redmi, Realme, and Motorola.
+
+## 7. How to connect the project to Neon
+
+The Neon integration is already connected to this project. A fresher should follow these steps when setting up another copy of the project:
+
+### Step 1: Install dependencies
 
 ```bash
-pnpm add drizzle-orm @neondatabase/serverless
-pnpm add -D drizzle-kit
+pnpm install
 ```
 
-### Step 3: Add the Drizzle client
+The project already includes the database packages. Do not install a second database library unless the project owner approves it.
 
-Create `lib/db/index.ts`:
+### Step 2: Check environment variables
 
-```ts
-import { neon } from '@neondatabase/serverless'
-import { drizzle } from 'drizzle-orm/neon-http'
+In Vercel project settings, open **Vars** and confirm that `DATABASE_URL` and `BETTER_AUTH_SECRET` exist.
 
-const sql = neon(process.env.DATABASE_URL!)
-export const db = drizzle(sql)
-```
+Never paste database credentials into source code.
 
-In production code, validate that `DATABASE_URL` exists at startup and keep all database access on the server.
+### Step 3: Use the database client
 
-### Step 4: Define Drizzle schema
-
-Create `lib/db/schema.ts` with tables matching the SQL model above. Use foreign keys for brand, mobile, category, accessory, and group relationships. Add unique constraints for slugs and composite join-table keys.
-
-### Step 5: Run migrations
-
-Create a Drizzle config and migration scripts, then apply migrations through the deployment workflow. Never run destructive migrations against production without a backup.
-
-### Step 6: Replace mock reads
-
-Replace imports such as:
-
-```ts
-import { getCompatibleDevices } from '@/lib/mock-compatibility'
-```
-
-with server-side functions such as:
-
-```ts
-export async function findCompatibleMobiles(
-  mobileSlug: string,
-  categorySlug: string,
-) {
-  // Query the compatibility joins with Drizzle.
-}
-```
-
-Use Server Components for initial catalog reads and Route Handlers or Server Actions for mutations.
-
-## 8. Syncing the offline catalog
-
-The current browser snapshot should become a cache of the server catalog.
-
-### Pull flow
-
-1. Request `/api/catalog` with the latest known revision.
-2. Server returns catalog data and a revision number.
-3. Save the response with `saveOfflineCatalog`.
-4. Update `lastSyncedAt` in settings.
-
-### Push flow
-
-1. Store local changes in an IndexedDB `pending-changes` object store.
-2. When the user presses **Sync online now**, send pending changes to `/api/sync`.
-3. Server validates permissions and data relationships.
-4. Server applies changes in a transaction.
-5. Server returns accepted changes, conflicts, and the new revision.
-6. Client updates the local snapshot and clears accepted pending changes.
-
-### Conflict handling
-
-For a small shop, use a simple policy:
-
-- Server wins for records edited by another admin.
-- Client changes that conflict are shown in a review dialog.
-- Never silently overwrite a newer server record.
-- Keep an audit log for every accepted, rejected, and resolved change.
-
-## 9. API surface to add
-
-Suggested endpoints:
+The shared database client is located at:
 
 ```text
-GET    /api/catalog
-GET    /api/compatibility?mobile=s24&category=tempered-glass
-POST   /api/brands
-PATCH  /api/brands/:id
-DELETE /api/brands/:id
-POST   /api/mobiles
-PATCH  /api/mobiles/:id
-DELETE /api/mobiles/:id
-POST   /api/compatibility-groups
-PATCH  /api/compatibility-groups/:id
-POST   /api/sync
-GET    /api/backups
-POST   /api/backups
-POST   /api/backups/:id/restore
+lib/db/index.ts
 ```
 
-Protect admin mutations with authentication and authorization. Public compatibility lookup can remain read-only.
+It creates one Drizzle connection using `DATABASE_URL`.
 
-## 10. Import, export, backups, and restore
+### Step 4: Use the schema
 
-### Import
+The database table definitions are located at:
 
-Parse Excel files on the server, validate every row, report errors by row number, and commit valid rows in a transaction. Validate referenced brands and categories before creating relationships.
+```text
+lib/db/schema.ts
+```
 
-### Export
+When adding a new table:
 
-Generate exports from database queries, not from browser mock data. Include a generated timestamp and catalog revision so shop staff can identify the data version.
+1. Add its definition to the schema.
+2. Apply the table change through the connected Neon database tools.
+3. Add server-side queries.
+4. Add the user interface.
 
-### Backups
+Do not write database queries directly inside browser components.
 
-Use managed database backups for disaster recovery. The application backup page can additionally export catalog tables to a versioned file stored in private object storage.
+## 8. Shop-level security
 
-### Restore
+Every catalog row has a `shop_id`. This is important because one shop must not see or change another shop's data.
 
-Require confirmation, create a pre-restore backup, restore in a transaction where possible, and write an admin activity record.
+Every server query must filter by the current shop:
 
-## 11. Security checklist
+```ts
+// Conceptual example
+where(eq(catalogMobiles.shopId, currentShopId))
+```
 
-- Keep database credentials server-side.
-- Use parameterized queries or Drizzle query builders.
-- Validate all import, admin, and sync payloads with a schema validator.
-- Add authentication and admin authorization before production use.
-- Restrict backup downloads to authorized admins.
-- Use private storage for backup files.
-- Record admin actions and restore operations.
-- Do not trust client-provided `updatedAt`, revision, or user role values.
-- Add rate limits to import, export, and sync endpoints.
+Never trust a `shop_id` sent by the browser. Read the current user session on the server and determine the user's shop there.
 
-## 12. Recommended migration order
+## 9. Importing Excel files
 
-1. Create the Postgres schema and seed the current mock catalog.
-2. Implement read-only `/api/catalog` and `/api/compatibility` endpoints.
-3. Switch the public search and compatibility explorer to server data.
-4. Add admin CRUD mutations for brands, mobiles, and compatibility groups.
-5. Add IndexedDB pending changes and real sync responses.
-6. Connect import/export and backup storage.
-7. Add authentication, authorization, audit logging, and conflict review.
+The import page supports `.xlsx` files.
 
-## 13. Important current limitation
+Recommended workflow:
 
-The current application is a mock-data prototype. IndexedDB provides browser-local persistence, but the **Sync online now** button does not yet communicate with a real database. A real database integration is required for sharing changes across browsers, computers, and shop employees.
+1. Download the template.
+2. Fill in the brand, model, year, and variant columns.
+3. Upload the Excel file.
+4. Review the preview.
+5. Fix row-level validation errors.
+6. Import only after the preview is correct.
 
-Once connected, Postgres becomes the source of truth and IndexedDB remains the offline-first cache.
+Typical validation errors include:
+
+- Missing brand
+- Missing model
+- Invalid year
+- Duplicate model
+- Unsupported accessory type
+
+The application should never insert invalid rows silently.
+
+## 10. Exporting data
+
+Export creates an Excel-compatible file containing catalog data. Use exports to:
+
+- Review catalog data in Excel
+- Send data to a supplier
+- Make a manual copy
+- Prepare data for another system
+
+Always verify the downloaded file before deleting or changing the original data.
+
+## 11. Backup and restore
+
+A backup contains a complete catalog snapshot and a checksum.
+
+A safe restore process is:
+
+1. Select a backup.
+2. Download or inspect it.
+3. Verify the checksum.
+4. Preview the records that would change.
+5. Confirm the restore.
+6. Create a new backup before replacing current data.
+
+Do not restore an unknown file directly into the database.
+
+For scheduled backups, a server-side scheduled job should create a backup at a regular interval. Browser-only timers are not reliable because the browser can be closed.
+
+## 12. PWA and offline use
+
+The project includes:
+
+- `app/manifest.ts` — application name and install settings
+- `public/sw.js` — service worker for cached app files
+- `components/pwa-register.tsx` — registers the service worker
+- `public/icon.svg` — app icon
+
+On a supported phone or tablet, the user can choose **Add to Home Screen** or **Install App** in the browser menu.
+
+The PWA helps the shop open the app quickly and continue using cached catalog data offline. It does not replace the Neon database. The app should sync with Neon whenever the device is online.
+
+## 13. Beginner troubleshooting
+
+### The app cannot connect to Neon
+
+Check that `DATABASE_URL` exists in Vercel Vars and that the latest deployment has access to it.
+
+### Login does not work
+
+Check that `BETTER_AUTH_SECRET` exists and is at least 32 characters long.
+
+### Data disappears after browser cleanup
+
+That is expected for IndexedDB. Sign in while online and download the latest catalog from Neon again.
+
+### Excel import shows errors
+
+Read the row-level error messages, correct the Excel file, and upload it again. Do not remove validation just to force an import.
+
+### One shop sees another shop's catalog
+
+This is a security issue. Check that every server query filters by the authenticated user's `shop_id`.
+
+## 14. Simple development rules
+
+- Keep Neon as the online source of truth.
+- Keep IndexedDB as the offline cache.
+- Use Drizzle for database queries.
+- Use server routes or server actions for database access.
+- Validate all imported data.
+- Scope every catalog query to the current shop.
+- Never expose secrets in client-side code.
+- Back up data before bulk imports or restores.
+- Test offline mode before releasing a new version.
+
+## 15. Recommended next production steps
+
+1. Connect each authenticated user to a shop record.
+2. Replace the demo shop fallback with the session shop ID.
+3. Add server-side catalog create, update, and delete actions.
+4. Add a synchronization queue for offline edits.
+5. Add scheduled server backups.
+6. Add restore preview and checksum verification.
+7. Test the PWA on the shop's actual phones and tablets.
+8. Add monitoring and audit logs for important changes.
+
+This setup gives the shop a reliable online catalog while still allowing searches when the internet is temporarily unavailable.
