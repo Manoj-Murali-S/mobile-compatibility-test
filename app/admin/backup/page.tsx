@@ -20,6 +20,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { HardDrive, Plus, MoreHorizontal, Download, RotateCcw, Trash2, AlertCircle } from 'lucide-react'
 import { mockBackupRecords, BackupRecord } from '@/lib/admin-mock-data'
+import { exportCatalogSnapshot } from '@/lib/catalog-db'
+import { downloadJson } from '@/lib/download-utils'
 
 export default function BackupPage() {
   const [backups, setBackups] = useState<BackupRecord[]>(mockBackupRecords)
@@ -41,6 +43,11 @@ export default function BackupPage() {
 
     setBackups([newBackup, ...backups])
     setIsCreatingBackup(false)
+  }
+
+  const handleDownload = async (backup: BackupRecord) => {
+    const snapshot = await exportCatalogSnapshot()
+    downloadJson({ backup, snapshot }, `${backup.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`)
   }
 
   const handleRestore = (id: string) => {
@@ -179,7 +186,7 @@ export default function BackupPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownload(backup)}>
                             <Download className="w-4 h-4 mr-2" />
                             Download
                           </DropdownMenuItem>

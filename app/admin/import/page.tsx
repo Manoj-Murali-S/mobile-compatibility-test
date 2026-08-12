@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Upload, CheckCircle, AlertCircle, File } from 'lucide-react'
+import { Upload, CheckCircle, AlertCircle, File, Download } from 'lucide-react'
+import { downloadImportTemplate } from '@/lib/download-utils'
 
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -160,7 +161,7 @@ export default function ImportPage() {
           <p className="text-sm text-muted-foreground">
             Download our Excel template to ensure your data is formatted correctly
           </p>
-          <Button variant="outline">
+          <Button variant="outline" onClick={downloadImportTemplate}>
             <Download className="w-4 h-4 mr-2" />
             Download Template
           </Button>
@@ -179,8 +180,4 @@ export default function ImportPage() {
       </Card>
     </div>
   )
-}
-
-function Download({ className }: { className?: string }) {
-  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
 }

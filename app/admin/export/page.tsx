@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Download, FileText, CheckCircle } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { downloadCsv } from '@/lib/download-utils'
+import { exportCatalogSnapshot } from '@/lib/catalog-db'
 
 export default function ExportPage() {
   const [selectedItems, setSelectedItems] = useState({
@@ -26,10 +28,19 @@ export default function ExportPage() {
 
   const handleExport = async () => {
     setIsExporting(true)
-    // Simulate export process
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setExportedFile(`export_${new Date().toISOString().split('T')[0]}.xlsx`)
+    const snapshot = await exportCatalogSnapshot()
+    const rows = selectedItems.mobiles
+      ? snapshot.mobiles
+      : selectedItems.brands
+        ? snapshot.brands
+        : snapshot.accessories
+    downloadCsv(rows as Record<string, unknown>[], `mobile-catalog-${new Date().toISOString().slice(0, 10)}.csv`)
+    setExportedFile(`mobile-catalog-${new Date().toISOString().slice(0, 10)}.csv`)
     setIsExporting(false)
+  }
+
+  const handleDownloadExport = () => {
+    void handleExport()
   }
 
   const stats = [
@@ -124,7 +135,7 @@ export default function ExportPage() {
               </div>
             </div>
 
-            <Button className="w-full gap-2">
+            <Button onClick={handleDownloadExport} className="w-full gap-2">
               <Download className="w-4 h-4" />
               Download File
             </Button>

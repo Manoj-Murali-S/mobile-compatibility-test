@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import MobileCard from './mobile-card'
-import { getMobilesByBrand } from '@/lib/mock-data'
+import { getAllMobiles } from '@/lib/mock-data'
 
 interface MobileGridProps {
   brand: string
@@ -10,9 +10,9 @@ interface MobileGridProps {
 }
 
 export default function MobileGrid({ brand, searchQuery }: MobileGridProps) {
-  const mobiles = getMobilesByBrand(brand)
+  const mobiles = searchQuery.trim() ? getAllMobiles() : getAllMobiles().filter((mobile) => mobile.brand === brand)
 
-  const filtered = mobiles.filter((mobile) =>
+  const filtered = (searchQuery.trim() ? mobiles : mobiles).filter((mobile) =>
     mobile.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
     mobile.variants.some((v) =>
       v.toLowerCase().includes(searchQuery.toLowerCase())
