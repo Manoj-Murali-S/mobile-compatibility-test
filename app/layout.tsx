@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { ThemeProvider } from '@/components/theme-provider'
+import { PwaRegister } from '@/components/pwa-register'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -44,6 +45,7 @@ export default function RootLayout({
       <body className="antialiased bg-background">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
+          <PwaRegister />
         </ThemeProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

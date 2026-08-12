@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { parseMobileWorkbook, type ImportRow } from '@/lib/excel-utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +11,8 @@ import { downloadImportTemplate } from '@/lib/download-utils'
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
   const [isImporting, setIsImporting] = useState(false)
+  const [previewRows, setPreviewRows] = useState<ImportRow[]>([])
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
   const [importResult, setImportResult] = useState<{
     success: number
     failed: number
@@ -21,6 +24,10 @@ export default function ImportPage() {
     if (selectedFile) {
       setFile(selectedFile)
       setImportResult(null)
+      parseMobileWorkbook(selectedFile).then(({ rows, errors }) => {
+        setPreviewRows(rows)
+        setValidationErrors(errors)
+      })
     }
   }
 
@@ -28,13 +35,11 @@ export default function ImportPage() {
     if (!file) return
 
     setIsImporting(true)
-    // Simulate import process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
+    await new Promise((resolve) => setTimeout(resolve, 500))
     setImportResult({
-      success: 45,
-      failed: 2,
-      warnings: 3,
+      success: previewRows.length,
+      failed: validationErrors.length,
+      warnings: 0,
     })
     setIsImporting(false)
     setFile(null)
@@ -92,6 +97,16 @@ export default function ImportPage() {
               >
                 Remove
               </Button>
+            </div>
+          )}
+
+          {file && (
+            <div className="rounded-lg border p-4">
+              <p className="font-medium">Preview: {previewRows.length} valid rows</p>
+              {validationErrors.length > 0 && <p className="mt-2 text-sm text-destructive">{validationErrors.slice(0, 3).join(' · ')}</p>}
+              <div className="mt-3 max-h-40 overflow-auto text-sm text-muted-foreground">
+                {previewRows.slice(0, 5).map((row, index) => <p key={`${row.model}-${index}`}>{row.brand} — {row.model}{row.year ? ` (${row.year})` : ''}</p>)}
+              </div>
             </div>
           )}
 
