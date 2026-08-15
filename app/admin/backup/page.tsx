@@ -20,8 +20,32 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { HardDrive, Plus, MoreHorizontal, Download, RotateCcw, Trash2, AlertCircle } from 'lucide-react'
 import { mockBackupRecords, BackupRecord } from '@/lib/admin-mock-data'
-import { exportCatalogSnapshot } from '@/lib/catalog-db'
+import { getMobiles } from '@/lib/repository/mobiles'
+import { getBrands } from '@/lib/repository/brands'
+import { getAllCompatibility } from '@/lib/repository/compatibility'
+import { getAccessories } from '@/lib/repository/accessories'
+import { getAllSettings } from '@/lib/repository/settings'
 import { downloadJson } from '@/lib/download-utils'
+
+async function exportLiveSnapshot() {
+  const [brands, mobiles, compatibility, accessories, settings] = await Promise.all([
+    getBrands(),
+    getMobiles(),
+    getAllCompatibility(),
+    getAccessories(),
+    getAllSettings(),
+  ])
+  return {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    source: 'SQLite (local)',
+    brands,
+    mobiles,
+    compatibility,
+    accessories,
+    settings,
+  }
+}
 
 export default function BackupPage() {
   const [backups, setBackups] = useState<BackupRecord[]>(mockBackupRecords)
@@ -29,13 +53,14 @@ export default function BackupPage() {
 
   const handleCreateBackup = async () => {
     setIsCreatingBackup(true)
-    // Simulate backup process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    const snapshot = await exportLiveSnapshot()
+    const name = `Full Backup ${new Date().toISOString().split('T')[0]}`
+    downloadJson(snapshot, `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`)
 
     const newBackup: BackupRecord = {
       id: String(backups.length + 1),
-      name: `Full Backup ${new Date().toISOString().split('T')[0]}`,
-      size: '2.5 MB',
+      name,
+      size: `${(JSON.stringify(snapshot).length / 1024).toFixed(1)} KB`,
       type: 'full',
       createdAt: new Date().toLocaleString(),
       status: 'completed',
@@ -46,7 +71,7 @@ export default function BackupPage() {
   }
 
   const handleDownload = async (backup: BackupRecord) => {
-    const snapshot = await exportCatalogSnapshot()
+    const snapshot = await exportLiveSnapshot()
     downloadJson({ backup, snapshot }, `${backup.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`)
   }
 
@@ -60,14 +85,10 @@ export default function BackupPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
-        return 'bg-green-500/10 text-green-700 border-green-200'
-      case 'failed':
-        return 'bg-red-500/10 text-red-700 border-red-200'
-      case 'in-progress':
-        return 'bg-blue-500/10 text-blue-700 border-blue-200'
-      default:
-        return ''
+      case 'completed': return 'bg-green-500/10 text-green-700 border-green-200'
+      case 'failed': return 'bg-red-500/10 text-red-700 border-red-200'
+      case 'in-progress': return 'bg-blue-500/10 text-blue-700 border-blue-200'
+      default: return ''
     }
   }
 
@@ -78,7 +99,7 @@ export default function BackupPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Backup & Restore</h1>
-        <p className="text-muted-foreground mt-1">Manage your database backups and restore points</p>
+        <p className="text-muted-foreground mt-1">Manage your local SQLite database backups</p>
       </div>
 
       {/* Latest Backup Info */}
@@ -113,15 +134,14 @@ export default function BackupPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Create New Backup</CardTitle>
-          <CardDescription>Take a full backup of your entire database</CardDescription>
+          <CardDescription>Export a full JSON snapshot of your local SQLite catalog</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="bg-blue-500/10 rounded-lg p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-muted-foreground">
-                Full backups may take 1-2 minutes. During this time, the system will continue to
-                function normally.
+                Creates a JSON file downloaded to your computer. The backup contains all brands, mobiles, compatibility groups, and accessories from your local SQLite database.
               </p>
             </div>
 
@@ -132,7 +152,7 @@ export default function BackupPage() {
               size="lg"
             >
               <Plus className="w-4 h-4 mr-2" />
-              {isCreatingBackup ? 'Creating Backup...' : 'Create Full Backup'}
+              {isCreatingBackup ? 'Creating Backup…' : 'Create Full Backup (Download JSON)'}
             </Button>
           </div>
         </CardContent>
@@ -220,26 +240,26 @@ export default function BackupPage() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div>
-              <p className="text-sm font-medium">Automatic Backups</p>
-              <p className="text-xs text-muted-foreground">Daily at 2:00 AM UTC</p>
+              <p className="text-sm font-medium">Storage Type</p>
+              <p className="text-xs text-muted-foreground">Local SQLite database file</p>
             </div>
-            <Badge variant="default">Enabled</Badge>
+            <Badge variant="outline">SQLite</Badge>
           </div>
 
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div>
-              <p className="text-sm font-medium">Retention Policy</p>
-              <p className="text-xs text-muted-foreground">Keep last 30 days of backups</p>
+              <p className="text-sm font-medium">Data Persistence</p>
+              <p className="text-xs text-muted-foreground">Survives app close and system restart</p>
             </div>
-            <Badge variant="outline">30 days</Badge>
+            <Badge variant="default" className="bg-green-500/10 text-green-700 border-green-200">Persistent</Badge>
           </div>
 
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div>
-              <p className="text-sm font-medium">Storage Location</p>
-              <p className="text-xs text-muted-foreground">Local server storage</p>
+              <p className="text-sm font-medium">Sync to Cloud</p>
+              <p className="text-xs text-muted-foreground">Use the Sync button in the top bar</p>
             </div>
-            <Badge variant="outline">Local</Badge>
+            <Badge variant="outline">Optional</Badge>
           </div>
         </CardContent>
       </Card>

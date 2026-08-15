@@ -12,8 +12,11 @@ import {
   HardDrive,
   Settings,
   ChevronRight,
+  Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/lib/auth'
+import { Button } from '@/components/ui/button'
 
 const adminMenuItems = [
   {
@@ -60,6 +63,16 @@ const adminMenuItems = [
 
 export function AdminSidebar() {
   const pathname = usePathname()
+  const { user, signOut } = useAuth()
+
+  const items = [
+    ...adminMenuItems,
+    ...(user?.role === 'admin' || user?.role === 'superadmin' ? [{
+      title: 'Users',
+      href: '/admin/users',
+      icon: Users,
+    }] : [])
+  ]
 
   return (
     <aside className="w-64 bg-card border-r border-border h-screen sticky top-0 overflow-y-auto">
@@ -78,7 +91,7 @@ export function AdminSidebar() {
 
       {/* Navigation */}
       <nav className="p-4 space-y-2">
-        {adminMenuItems.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
@@ -102,11 +115,18 @@ export function AdminSidebar() {
 
       {/* Footer */}
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border bg-card">
-        <div className="space-y-2 text-xs text-muted-foreground">
-          <p>v1.0.0</p>
-          <Link href="/" className="text-accent hover:underline block">
-            ← Back to Store
-          </Link>
+        <div className="space-y-4 text-xs text-muted-foreground flex flex-col">
+          <p>Logged in as {user?.name}</p>
+          <div className="flex flex-col gap-2">
+            <Link href="/" className="block">
+              <Button variant="outline" size="sm" className="w-full justify-start text-xs">
+                ← Back to Web
+              </Button>
+            </Link>
+            <Button variant="ghost" size="sm" onClick={signOut} className="w-full justify-start text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+              Logout
+            </Button>
+          </div>
         </div>
       </div>
     </aside>

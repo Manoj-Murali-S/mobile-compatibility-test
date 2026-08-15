@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,12 +19,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, MoreHorizontal, Pencil, Trash2, Search } from 'lucide-react'
-import { mockMobiles, AdminMobile } from '@/lib/admin-mock-data'
+import { Plus, MoreHorizontal, Pencil, Trash2, Search, Loader2 } from 'lucide-react'
 import { MobileDialog } from '@/components/admin/mobile-dialog'
+import { getMobiles, upsertMobile, deleteMobile } from '@/lib/repository/mobiles'
+import { useAuth } from '@/lib/auth'
+import type { AdminMobile } from '@/lib/admin-mock-data'
+import type { CatalogMobile } from '@/lib/catalog-db'
+
+function toAdminMobile(m: CatalogMobile): AdminMobile {
+  return {
+    id: m.id,
+    model: m.model,
+    brand: m.brand,
+    image: m.image,
+    releaseYear: m.year ?? new Date().getFullYear(),
+    variants: m.variants?.length ?? 1,
+    accessories: (m as any).accessories ?? 0,
+    status: (m as any).status ?? 'active',
+    createdAt: (m as any).createdAt ?? new Date().toLocaleDateString(),
+    updatedAt: new Date(m.updatedAt).toLocaleDateString(),
+  }
+}
 
 export default function MobilesPage() {
-  const [mobiles, setMobiles] = useState<AdminMobile[]>(mockMobiles)
+  const { user } = useAuth()
+  const isViewer = user?.role === 'viewer'
+  const [mobiles, setMobiles] = useState<AdminMobile[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedMobile, setSelectedMobile] = useState<AdminMobile | null>(null)
@@ -34,6 +55,20 @@ export default function MobilesPage() {
       m.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
       m.brand.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const loadMobiles = useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const data = await getMobiles()
+      setMobiles(data.map(toAdminMobile))
+    } catch (err) {
+      console.error('Failed to load mobiles', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { void loadMobiles() }, [loadMobiles])
 
   const handleAddMobile = () => {
     setSelectedMobile(null)
@@ -45,29 +80,30 @@ export default function MobilesPage() {
     setIsDialogOpen(true)
   }
 
-  const handleDeleteMobile = (id: string) => {
-    setMobiles(mobiles.filter((m) => m.id !== id))
+  const handleDeleteMobile = async (id: string) => {
+    await deleteMobile(id)
+    await loadMobiles()
   }
 
-  const handleSaveMobile = (mobile: AdminMobile) => {
-    if (selectedMobile) {
-      setMobiles(mobiles.map((m) => (m.id === mobile.id ? mobile : m)))
-    } else {
-      setMobiles([...mobiles, { ...mobile, id: String(mobiles.length + 1) }])
-    }
+  const handleSaveMobile = async (mobile: AdminMobile) => {
+    await upsertMobile({
+      id: mobile.id || mobile.model.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      brand: mobile.brand,
+      model: mobile.model,
+      image: mobile.image,
+      year: mobile.releaseYear,
+      updatedAt: new Date().toISOString(),
+    })
     setIsDialogOpen(false)
+    await loadMobiles()
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'bg-green-500/10 text-green-700 border-green-200'
-      case 'inactive':
-        return 'bg-yellow-500/10 text-yellow-700 border-yellow-200'
-      case 'discontinued':
-        return 'bg-red-500/10 text-red-700 border-red-200'
-      default:
-        return ''
+      case 'active': return 'bg-green-500/10 text-green-700 border-green-200'
+      case 'inactive': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200'
+      case 'discontinued': return 'bg-red-500/10 text-red-700 border-red-200'
+      default: return ''
     }
   }
 
@@ -76,13 +112,15 @@ export default function MobilesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Mobile Management</h1>
-          <p className="text-muted-foreground mt-1">Manage all mobile devices in the system</p>
+          <h1 className="text-3xl font-bold">Mobile Devices</h1>
+          <p className="text-muted-foreground mt-1">Manage mobile models, variants, and specifications</p>
         </div>
-        <Button onClick={handleAddMobile} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Mobile
-        </Button>
+        {!isViewer && (
+          <Button onClick={handleAddMobile} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Device
+          </Button>
+        )}
       </div>
 
       {/* Search */}
@@ -103,7 +141,10 @@ export default function MobilesPage() {
       {/* Mobiles Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">All Mobiles ({filteredMobiles.length})</CardTitle>
+          <CardTitle className="text-base">
+            All Mobiles ({filteredMobiles.length})
+            {isLoading && <Loader2 className="inline-block ml-2 w-4 h-4 animate-spin" />}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -116,21 +157,26 @@ export default function MobilesPage() {
                   <TableHead>Variants</TableHead>
                   <TableHead>Accessories</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Updated</TableHead>
+                  {!isViewer && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredMobiles.map((mobile) => (
                   <TableRow key={mobile.id}>
                     <TableCell>
-                      <span className="font-medium">{mobile.model}</span>
+                      <div className="flex items-center gap-3">
+                        {mobile.image && mobile.image.startsWith('data:image/') && (
+                          <img src={mobile.image} alt={mobile.model} className="w-8 h-8 object-contain bg-white rounded border p-1" />
+                        )}
+                        <span className="font-medium">{mobile.model}</span>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">{mobile.brand}</span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{mobile.releaseYear}</span>
+                      <span className="text-sm">{mobile.releaseYear || '—'}</span>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{mobile.variants}</Badge>
@@ -143,31 +189,40 @@ export default function MobilesPage() {
                         {mobile.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{mobile.createdAt}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEditMobile(mobile)}>
-                            <Pencil className="w-4 h-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteMobile(mobile.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{mobile.updatedAt}</TableCell>
+                    {!isViewer && (
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditMobile(mobile)}>
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteMobile(mobile.id)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
+                {!isLoading && filteredMobiles.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      {searchTerm ? 'No results matching your search.' : 'No mobiles yet. Click "Add Mobile" to create one.'}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>

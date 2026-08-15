@@ -35,9 +35,13 @@ export default function MobileCard({ mobile }: MobileCardProps) {
           <motion.div
             animate={{ scale: isHovered ? 1.1 : 1 }}
             transition={{ duration: 0.3 }}
-            className="w-32 h-32 rounded-full bg-background/50 flex items-center justify-center"
+            className="w-32 h-32 rounded-full bg-background/50 flex items-center justify-center overflow-hidden"
           >
-            <div className="text-4xl">{mobile.image}</div>
+            {mobile.image && mobile.image.startsWith('data:image/') ? (
+              <img src={mobile.image} alt={mobile.model} className="w-full h-full object-contain p-2" />
+            ) : (
+              <div className="text-4xl">{mobile.image || '📱'}</div>
+            )}
           </motion.div>
 
           {/* Favorite Button */}

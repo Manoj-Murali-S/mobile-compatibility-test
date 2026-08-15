@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Upload, CheckCircle, AlertCircle, File, Download } from 'lucide-react'
 import { downloadImportTemplate } from '@/lib/download-utils'
+import { upsertMobile } from '@/lib/repository/mobiles'
 
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -35,10 +36,27 @@ export default function ImportPage() {
     if (!file) return
 
     setIsImporting(true)
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    let success = 0
+    let failed = 0
+
+    for (const row of previewRows) {
+      try {
+        await upsertMobile({
+          brand: row.brand,
+          model: row.model,
+          year: row.year ? Number(row.year) : undefined,
+          variants: row.variants ? String(row.variants).split(',').map((v) => v.trim()) : [],
+          updatedAt: new Date().toISOString(),
+        })
+        success++
+      } catch {
+        failed++
+      }
+    }
+
     setImportResult({
-      success: previewRows.length,
-      failed: validationErrors.length,
+      success,
+      failed: failed + validationErrors.length,
       warnings: 0,
     })
     setIsImporting(false)
@@ -116,7 +134,7 @@ export default function ImportPage() {
             disabled={!file || isImporting}
             className="w-full"
           >
-            {isImporting ? 'Importing...' : 'Import Data'}
+            {isImporting ? 'Importing to SQLite…' : 'Import Data'}
           </Button>
         </CardContent>
       </Card>
@@ -127,7 +145,7 @@ export default function ImportPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-green-600" />
-              Import Completed
+              Import Completed — Saved to Local SQLite
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -147,13 +165,13 @@ export default function ImportPage() {
                 </div>
               </div>
 
-              <div className="bg-muted p-4 rounded-lg space-y-2">
+              <div className="bg-muted p-4 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-medium">Duplicate entries detected</p>
+                    <p className="text-sm font-medium">Saved locally to SQLite</p>
                     <p className="text-xs text-muted-foreground">
-                      3 duplicate mobile entries were skipped during import
+                      Data is now stored in your local database. Use the Sync button to push changes to Supabase when online.
                     </p>
                   </div>
                 </div>

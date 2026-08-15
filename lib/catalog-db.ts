@@ -1,7 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 
 export type CatalogBrand = { id: string; name: string; logo?: string; updatedAt: string }
-export type CatalogMobile = { id: string; model: string; brand: string; year?: number; variants?: string[]; updatedAt: string }
+export type CatalogMobile = { id: string; model: string; brand: string; image?: string; year?: number; variants?: string[]; updatedAt: string }
 export type CatalogCompatibility = { id: string; category: string; sourceModel: string; compatibleModels: string[]; updatedAt: string }
 export type CatalogAccessory = { id: string; category: string; name: string; compatibleModels: string[]; updatedAt: string }
 export type CatalogSetting = { key: string; value: unknown; updatedAt: string }

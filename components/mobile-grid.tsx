@@ -2,7 +2,9 @@
 
 import { motion } from 'framer-motion'
 import MobileCard from './mobile-card'
-import { getAllMobiles } from '@/lib/mock-data'
+import { useState, useEffect } from 'react'
+import { getMobiles } from '@/lib/repository/mobiles'
+import type { CatalogMobile } from '@/lib/catalog-db'
 
 interface MobileGridProps {
   brand: string
@@ -10,13 +12,27 @@ interface MobileGridProps {
 }
 
 export default function MobileGrid({ brand, searchQuery }: MobileGridProps) {
-  const mobiles = searchQuery.trim() ? getAllMobiles() : getAllMobiles().filter((mobile) => mobile.brand === brand)
+  const [allMobiles, setAllMobiles] = useState<CatalogMobile[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filtered = (searchQuery.trim() ? mobiles : mobiles).filter((mobile) =>
+  useEffect(() => {
+    let mounted = true
+    getMobiles().then((data) => {
+      if (mounted) {
+        setAllMobiles(data)
+        setLoading(false)
+      }
+    })
+    return () => { mounted = false }
+  }, [])
+
+  const mobiles = searchQuery.trim() ? allMobiles : allMobiles.filter((mobile) => mobile.brand === brand)
+
+  const filtered = mobiles.filter((mobile) =>
     mobile.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    mobile.variants.some((v) =>
+    (mobile.variants && mobile.variants.some((v) =>
       v.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    ))
   )
 
   const container = {
@@ -41,6 +57,10 @@ export default function MobileGrid({ brand, searchQuery }: MobileGridProps) {
         damping: 15,
       },
     },
+  }
+
+  if (loading) {
+    return <div className="text-center py-16 text-muted-foreground">Loading devices...</div>
   }
 
   if (filtered.length === 0) {
@@ -69,7 +89,7 @@ export default function MobileGrid({ brand, searchQuery }: MobileGridProps) {
     >
       {filtered.map((mobile) => (
         <motion.div key={mobile.id} variants={item}>
-          <MobileCard mobile={mobile} />
+          <MobileCard mobile={mobile as any} />
         </motion.div>
       ))}
     </motion.div>

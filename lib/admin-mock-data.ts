@@ -15,6 +15,7 @@ export interface AdminMobile {
   id: string
   model: string
   brand: string
+  image?: string
   releaseYear: number
   variants: number
   accessories: number

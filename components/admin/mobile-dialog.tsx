@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { AdminMobile } from '@/lib/admin-mock-data'
+import { fileToBase64 } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ export function MobileDialog({ open, onOpenChange, mobile, onSave }: MobileDialo
       id: '',
       model: '',
       brand: 'Samsung',
+      image: '',
       releaseYear: new Date().getFullYear(),
       variants: 1,
       accessories: 0,
@@ -43,11 +45,31 @@ export function MobileDialog({ open, onOpenChange, mobile, onSave }: MobileDialo
     }
   )
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState('')
+
   const handleSave = () => {
     onSave({
       ...formData,
       updatedAt: new Date().toISOString().split('T')[0],
     })
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError('')
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image must be less than 2MB.')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+    try {
+      const base64 = await fileToBase64(file)
+      setFormData({ ...formData, image: base64 })
+    } catch (err: any) {
+      setError('Failed to read file')
+    }
   }
 
   return (
@@ -56,6 +78,8 @@ export function MobileDialog({ open, onOpenChange, mobile, onSave }: MobileDialo
         <DialogHeader>
           <DialogTitle>{mobile ? 'Edit Mobile' : 'Add New Mobile'}</DialogTitle>
         </DialogHeader>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
         <div className="space-y-4">
           <div>
@@ -85,6 +109,24 @@ export function MobileDialog({ open, onOpenChange, mobile, onSave }: MobileDialo
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="image">Device Image</Label>
+            <div className="flex items-center gap-4 mt-1">
+              {formData.image && formData.image.startsWith('data:image/') && (
+                <img src={formData.image} alt="Device preview" className="w-12 h-12 object-contain bg-white rounded border p-1" />
+              )}
+              <Input
+                id="image"
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="flex-1"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Max size: 2MB.</p>
           </div>
 
           <div>

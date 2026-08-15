@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { AdminBrand } from '@/lib/admin-mock-data'
+import { fileToBase64 } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -40,8 +41,28 @@ export function BrandDialog({ open, onOpenChange, brand, onSave }: BrandDialogPr
     }
   )
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState('')
+
   const handleSave = () => {
     onSave(formData)
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError('')
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image must be less than 2MB.')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+    try {
+      const base64 = await fileToBase64(file)
+      setFormData({ ...formData, logo: base64 })
+    } catch (err: any) {
+      setError('Failed to read file')
+    }
   }
 
   return (
@@ -50,6 +71,8 @@ export function BrandDialog({ open, onOpenChange, brand, onSave }: BrandDialogPr
         <DialogHeader>
           <DialogTitle>{brand ? 'Edit Brand' : 'Add New Brand'}</DialogTitle>
         </DialogHeader>
+        
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
         <div className="space-y-4">
           <div>
@@ -64,15 +87,23 @@ export function BrandDialog({ open, onOpenChange, brand, onSave }: BrandDialogPr
           </div>
 
           <div>
-            <Label htmlFor="logo">Logo Emoji</Label>
-            <Input
-              id="logo"
-              value={formData.logo}
-              onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
-              placeholder="📱"
-              className="mt-1"
-              maxLength={2}
-            />
+            <Label htmlFor="logo">Brand Logo (Image)</Label>
+            <div className="flex items-center gap-4 mt-1">
+              {formData.logo && formData.logo.startsWith('data:image/') ? (
+                <img src={formData.logo} alt="Logo preview" className="w-12 h-12 object-contain bg-white rounded border p-1" />
+              ) : formData.logo ? (
+                <span className="text-2xl">{formData.logo}</span>
+              ) : null}
+              <Input
+                id="logo"
+                type="file"
+                accept="image/*"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="flex-1"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Max size: 2MB.</p>
           </div>
 
           <div>

@@ -6,45 +6,20 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { exportCatalogSnapshot, getStorageHealth, requestPersistentStorage } from '@/lib/catalog-db'
-import { getOfflineCatalog, isOffline, subscribeToConnectionStatus } from '@/lib/offline-store'
+import { getSetting } from '@/lib/repository/settings'
+import { getPendingCount } from '@/lib/repository/sync-queue'
+import { useSync } from '@/lib/sync/use-sync'
 
 export default function OfflineSyncSettings() {
-  const [online, setOnline] = useState(true)
+  const { syncStatus, isSyncing, isOnline, triggerSync } = useSync()
   const [offlineEnabled, setOfflineEnabled] = useState(true)
   const [lastSaved, setLastSaved] = useState<string | null>(null)
-  const [syncing, setSyncing] = useState(false)
-  const [persisted, setPersisted] = useState(false)
-  const [storageUsed, setStorageUsed] = useState(0)
+  const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
-    getStorageHealth().then((health) => {
-      setPersisted(health.persisted)
-      setStorageUsed(health.usage)
-    })
-    setOnline(!isOffline())
-    getOfflineCatalog().then((catalog) => setLastSaved(catalog?.savedAt ?? null))
-    return subscribeToConnectionStatus(setOnline)
-  }, [])
-
-  const syncCatalog = async () => {
-    setSyncing(true)
-    await new Promise((resolve) => setTimeout(resolve, 700))
-    const snapshot = await exportCatalogSnapshot()
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = `mobile-catalog-sync-${new Date().toISOString().slice(0, 10)}.json`
-    anchor.click()
-    URL.revokeObjectURL(url)
-    setLastSaved(new Date().toISOString())
-    setSyncing(false)
-  }
-
-  const enablePersistentStorage = async () => {
-    setPersisted(await requestPersistentStorage())
-  }
+    getSetting<string>('last_sync_at').then((v) => setLastSaved(v ?? null))
+    getPendingCount().then(setPendingCount)
+  }, [syncStatus.lastSyncAt])
 
   return (
     <Card className="border-accent/30 bg-accent/5">
@@ -52,15 +27,15 @@ export default function OfflineSyncSettings() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              {online ? <Cloud className="h-4 w-4 text-accent" /> : <CloudOff className="h-4 w-4 text-amber-600" />}
-              Offline catalog & online sync
+              {isOnline ? <Cloud className="h-4 w-4 text-accent" /> : <CloudOff className="h-4 w-4 text-amber-600" />}
+              Offline catalog &amp; online sync
             </CardTitle>
             <CardDescription className="mt-1 max-w-2xl">
-              Keep the complete shop catalog available without internet. This demo stores a local IndexedDB snapshot; the sync button is ready for a future API/database connection.
+              All data is stored locally in <strong>SQLite</strong>. The app works fully offline. When internet is available and Supabase is configured, use the Sync button to push/pull changes.
             </CardDescription>
           </div>
-          <Badge variant="outline" className={online ? 'text-emerald-600' : 'text-amber-600'}>
-            {online ? 'Online' : 'Offline'}
+          <Badge variant="outline" className={isOnline ? 'text-emerald-600' : 'text-amber-600'}>
+            {isOnline ? 'Online' : 'Offline'}
           </Badge>
         </div>
       </CardHeader>
@@ -70,7 +45,7 @@ export default function OfflineSyncSettings() {
             <Database className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="font-medium">Use offline mode</p>
-              <p className="text-sm text-muted-foreground">Cache brands, mobiles, accessories, compatibility groups, and settings.</p>
+              <p className="text-sm text-muted-foreground">All data is always local — this is always on.</p>
             </div>
           </div>
           <Switch checked={offlineEnabled} onCheckedChange={setOfflineEnabled} aria-label="Use offline mode" />
@@ -78,29 +53,47 @@ export default function OfflineSyncSettings() {
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-lg border bg-background p-3">
             <p className="text-xs text-muted-foreground">Database</p>
-            <p className="mt-1 font-medium">IndexedDB / Dexie</p>
+            <p className="mt-1 font-medium">SQLite (local file)</p>
           </div>
           <div className="rounded-lg border bg-background p-3">
-            <p className="text-xs text-muted-foreground">Storage used</p>
-            <p className="mt-1 font-medium">{storageUsed ? `${(storageUsed / 1024 / 1024).toFixed(2)} MB` : 'Calculating…'}</p>
+            <p className="text-xs text-muted-foreground">Pending changes</p>
+            <p className="mt-1 font-medium">{pendingCount} item{pendingCount !== 1 ? 's' : ''}</p>
           </div>
           <div className="rounded-lg border bg-background p-3">
-            <p className="text-xs text-muted-foreground">Persistence</p>
-            <p className="mt-1 font-medium">{persisted ? 'Protected' : 'Browser managed'}</p>
+            <p className="text-xs text-muted-foreground">Sync target</p>
+            <p className="mt-1 font-medium">
+              {syncStatus.supabaseConfigured ? 'Supabase (configured)' : 'Not configured'}
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            {lastSaved ? `Last local snapshot: ${new Date(lastSaved).toLocaleString()}` : 'No local snapshot saved yet'}
+            {lastSaved
+              ? `Last synced: ${new Date(lastSaved).toLocaleString()}`
+              : 'Never synced with Supabase'}
           </p>
           <div className="flex flex-wrap gap-2">
-            {!persisted && <Button variant="outline" onClick={enablePersistentStorage}>Protect local storage</Button>}
-            <Button onClick={syncCatalog} disabled={!online || syncing}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Syncing catalog…' : 'Sync online now'}
+            <Button
+              onClick={triggerSync}
+              disabled={!isOnline || isSyncing || !syncStatus.supabaseConfigured}
+              title={
+                !syncStatus.supabaseConfigured
+                  ? 'Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable sync'
+                  : undefined
+              }
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing…' : 'Sync with Supabase'}
             </Button>
           </div>
         </div>
+        {!syncStatus.supabaseConfigured && (
+          <div className="rounded-lg border border-amber-200 bg-amber-500/5 p-3 text-xs text-amber-700">
+            <strong>To enable Supabase sync:</strong> add{' '}
+            <code>NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
+            <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to your <code>.env.local</code> file and restart the app.
+          </div>
+        )}
       </CardContent>
     </Card>
   )

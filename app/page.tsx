@@ -3,28 +3,20 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { RefreshCw } from 'lucide-react'
 import SearchHeader from '@/components/search-header'
 import BrandTabs from '@/components/brand-tabs'
 import MobileGrid from '@/components/mobile-grid'
 import CompatibilityExplorer from '@/components/compatibility-explorer'
 import RecentSearches from '@/components/recent-searches'
 import CommandPalette from '@/components/command-palette'
+import SyncStatusBar from '@/components/sync-status-bar'
+import { getBrands } from '@/lib/repository/brands'
+import { getMobiles } from '@/lib/repository/mobiles'
+import type { CatalogBrand, CatalogMobile } from '@/lib/catalog-db'
 import { Button } from '@/components/ui/button'
-import { getAllMobiles } from '@/lib/mock-data'
-import { getOfflineCatalog, subscribeToConnectionStatus } from '@/lib/offline-store'
 import { seedCatalogIfEmpty } from '@/lib/catalog-repository'
-
-const BRANDS = [
-  'Samsung',
-  'Apple',
-  'Redmi',
-  'Vivo',
-  'Oppo',
-  'Realme',
-  'Poco',
-  'Motorola',
-  'Nokia'
-]
+import { useSync } from '@/lib/sync/use-sync'
 
 export default function Home() {
   const [selectedBrand, setSelectedBrand] = useState('Samsung')
@@ -32,17 +24,34 @@ export default function Home() {
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [showRecentSearches, setShowRecentSearches] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const [isOnline, setIsOnline] = useState(true)
-  const [offlineReady, setOfflineReady] = useState(false)
 
-  useEffect(() => {
-    setIsOnline(navigator.onLine)
-    getOfflineCatalog().then((catalog) => setOfflineReady(Boolean(catalog)))
-    return subscribeToConnectionStatus(setIsOnline)
-  }, [])
+  const [dynamicBrands, setDynamicBrands] = useState<CatalogBrand[]>([])
+  const [dynamicMobiles, setDynamicMobiles] = useState<CatalogMobile[]>([])
+  const [loading, setLoading] = useState(true)
 
+  // Sync hook — provides status bar data and the Sync button handler
+  const syncHook = useSync()
+
+  // Seed catalog and load data on mount
   useEffect(() => {
-    void seedCatalogIfEmpty().then(() => setOfflineReady(true))
+    let mounted = true
+    async function loadData() {
+      await seedCatalogIfEmpty()
+      const [brandsData, mobilesData] = await Promise.all([
+        getBrands(),
+        getMobiles(),
+      ])
+      if (mounted) {
+        setDynamicBrands(brandsData)
+        setDynamicMobiles(mobilesData)
+        if (brandsData.length > 0 && selectedBrand === 'Samsung') {
+          setSelectedBrand(brandsData[0].name)
+        }
+        setLoading(false)
+      }
+    }
+    loadData()
+    return () => { mounted = false }
   }, [])
 
   // Handle keyboard shortcut for command palette
@@ -78,9 +87,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background">
-      <div className="border-b border-border bg-muted/40 px-4 py-2 text-center text-xs text-muted-foreground">
-        {isOnline ? (offlineReady ? 'Online · Catalog saved for offline use' : 'Online · Preparing offline catalog…') : 'Offline mode · Using the saved local catalog'}
-      </div>
+      {/* Sync Status Bar (replaces old online/offline banner) */}
+      <SyncStatusBar syncHook={syncHook} />
+
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -100,8 +109,8 @@ export default function Home() {
               showCommandPalette={true}
               onCommandPaletteClick={() => setShowCommandPalette(true)}
               suggestions={Array.from(new Set([
-                ...BRANDS,
-                ...getAllMobiles().map((mobile) => mobile.model),
+                ...dynamicBrands.map(b => b.name),
+                ...dynamicMobiles.map((mobile) => mobile.model),
               ]))}
               onFocusChange={(focused) => setShowRecentSearches(focused && !searchQuery.trim())}
             />
@@ -135,7 +144,7 @@ export default function Home() {
       <div className="border-b border-border sticky top-[88px] z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4">
           <BrandTabs
-            brands={BRANDS}
+            brands={dynamicBrands.map(b => ({ name: b.name, logo: b.logo }))}
             selected={selectedBrand}
             onSelect={handleBrandSelect}
           />
@@ -178,7 +187,7 @@ export default function Home() {
           handleBrandSelect(brand)
           setShowCommandPalette(false)
         }}
-        brands={BRANDS}
+        brands={dynamicBrands.map(b => b.name)}
       />
     </main>
   )

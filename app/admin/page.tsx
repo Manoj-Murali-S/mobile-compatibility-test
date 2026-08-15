@@ -1,39 +1,80 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { mockDashboardStats, mockSystemLogs } from '@/lib/admin-mock-data'
-import { Package, Smartphone, Link2, HardDrive, TrendingUp, AlertCircle } from 'lucide-react'
+import { mockSystemLogs } from '@/lib/admin-mock-data'
+import { Package, Smartphone, Link2, TrendingUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { getBrandCount } from '@/lib/repository/brands'
+import { getMobileCount } from '@/lib/repository/mobiles'
+import { getAccessoryCount } from '@/lib/repository/accessories'
+import { getSetting } from '@/lib/repository/settings'
+import { getPendingCount } from '@/lib/repository/sync-queue'
+
+interface DashboardStats {
+  totalBrands: number
+  totalMobiles: number
+  totalAccessories: number
+  pendingSyncItems: number
+  lastSync: string
+  lastBackup: string
+}
 
 export default function AdminDashboard() {
-  const stats = [
+  const [stats, setStats] = useState<DashboardStats>({
+    totalBrands: 0,
+    totalMobiles: 0,
+    totalAccessories: 0,
+    pendingSyncItems: 0,
+    lastSync: 'Never',
+    lastBackup: 'Never',
+  })
+
+  useEffect(() => {
+    async function loadStats() {
+      const [brands, mobiles, accessories, pending, lastSync] = await Promise.all([
+        getBrandCount(),
+        getMobileCount(),
+        getAccessoryCount(),
+        getPendingCount(),
+        getSetting<string>('last_sync_at'),
+      ])
+      setStats({
+        totalBrands: brands,
+        totalMobiles: mobiles,
+        totalAccessories: accessories,
+        pendingSyncItems: pending,
+        lastSync: lastSync ? new Date(lastSync).toLocaleString() : 'Never',
+        lastBackup: 'See Backup page',
+      })
+    }
+    void loadStats()
+  }, [])
+
+  const statCards = [
     {
       title: 'Total Brands',
-      value: mockDashboardStats.totalBrands,
+      value: stats.totalBrands,
       icon: Package,
       color: 'bg-blue-500/10 text-blue-600',
-      change: '+0.5%',
     },
     {
       title: 'Total Mobiles',
-      value: mockDashboardStats.totalMobiles,
+      value: stats.totalMobiles,
       icon: Smartphone,
       color: 'bg-purple-500/10 text-purple-600',
-      change: '+2.1%',
     },
     {
       title: 'Total Accessories',
-      value: mockDashboardStats.totalAccessories,
+      value: stats.totalAccessories,
       icon: Link2,
       color: 'bg-green-500/10 text-green-600',
-      change: '+5.3%',
     },
     {
-      title: 'Active Devices',
-      value: mockDashboardStats.activeDevices,
+      title: 'Pending Sync',
+      value: stats.pendingSyncItems,
       icon: TrendingUp,
-      color: 'bg-orange-500/10 text-orange-600',
-      change: `${Math.round((mockDashboardStats.activeDevices / mockDashboardStats.totalMobiles) * 100)}%`,
+      color: stats.pendingSyncItems > 0 ? 'bg-amber-500/10 text-amber-600' : 'bg-orange-500/10 text-orange-600',
     },
   ]
 
@@ -47,7 +88,7 @@ export default function AdminDashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, idx) => {
+        {statCards.map((stat, idx) => {
           const Icon = stat.icon
           return (
             <Card key={idx} className="hover:shadow-lg transition-shadow">
@@ -60,7 +101,7 @@ export default function AdminDashboard() {
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  <span className="text-green-600 font-medium">{stat.change}</span> from last month
+                  Live from SQLite
                 </p>
               </CardContent>
             </Card>
@@ -77,16 +118,16 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-xs text-muted-foreground">Last Backup</p>
-              <p className="text-sm font-medium">{mockDashboardStats.lastBackup}</p>
-            </div>
-            <div>
               <p className="text-xs text-muted-foreground">Last Sync</p>
-              <p className="text-sm font-medium">{mockDashboardStats.lastSync}</p>
+              <p className="text-sm font-medium">{stats.lastSync}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Compatibility Groups</p>
-              <p className="text-sm font-medium">{mockDashboardStats.totalCompatibilityGroups}</p>
+              <p className="text-xs text-muted-foreground">Pending Changes</p>
+              <p className="text-sm font-medium">{stats.pendingSyncItems} item(s)</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Storage</p>
+              <p className="text-sm font-medium">SQLite (local file)</p>
             </div>
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between text-xs">
