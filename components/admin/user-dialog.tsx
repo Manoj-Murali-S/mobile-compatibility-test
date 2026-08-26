@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,7 @@ export function UserDialog({ open, onOpenChange, editUser, onSaveAdd, onSaveEdit
   const [status, setStatus] = useState('pending')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [container, setContainer] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -75,11 +76,11 @@ export function UserDialog({ open, onOpenChange, editUser, onSaveAdd, onSaveEdit
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent ref={setContainer} className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{editUser ? 'Edit User' : 'Add New User'}</DialogTitle>
         </DialogHeader>
-        
+
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <div className="space-y-4">
@@ -120,15 +121,17 @@ export function UserDialog({ open, onOpenChange, editUser, onSaveAdd, onSaveEdit
 
           <div>
             <Label htmlFor="role">Role</Label>
-            <Select 
-              value={role} 
-              onValueChange={setRole}
-              disabled={editUser && currentUser?.role !== 'superadmin' && editUser.role === 'superadmin'}
+            <Select
+              value={role}
+              onValueChange={(value) => {
+                if (value) setRole(value)
+              }}
+              disabled={editUser && currentUser?.role !== 'superadmin' && editUser.role === 'superadmin' || false}
             >
               <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent container={container || undefined}>
                 <SelectItem value="viewer">Viewer</SelectItem>
                 <SelectItem value="editor">Editor</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
@@ -140,19 +143,24 @@ export function UserDialog({ open, onOpenChange, editUser, onSaveAdd, onSaveEdit
           </div>
 
           {editUser && (
-             <div>
-               <Label htmlFor="status">Status</Label>
-               <Select value={status} onValueChange={setStatus}>
-                 <SelectTrigger className="mt-1">
-                   <SelectValue />
-                 </SelectTrigger>
-                 <SelectContent>
-                   <SelectItem value="approved">Approved</SelectItem>
-                   <SelectItem value="pending">Pending</SelectItem>
-                   <SelectItem value="rejected">Rejected</SelectItem>
-                 </SelectContent>
-               </Select>
-             </div>
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={status}
+                onValueChange={(value) => {
+                  if (value) setStatus(value)
+                }}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent container={container || undefined}>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
 

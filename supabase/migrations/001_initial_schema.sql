@@ -32,13 +32,10 @@ CREATE TABLE IF NOT EXISTS catalog_brands (
 
 CREATE TABLE IF NOT EXISTS catalog_mobiles (
   id          TEXT PRIMARY KEY,
-  brand       TEXT NOT NULL,
+  brand_id    TEXT NOT NULL REFERENCES catalog_brands(id) ON DELETE CASCADE,
   model       TEXT NOT NULL,
   image       TEXT,
-  year        INTEGER,
-  variants    JSONB DEFAULT '[]',
   status      TEXT DEFAULT 'active',
-  accessories INTEGER DEFAULT 0,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_by  TEXT REFERENCES users(id),
@@ -50,8 +47,8 @@ CREATE TABLE IF NOT EXISTS catalog_mobiles (
 CREATE TABLE IF NOT EXISTS catalog_compatibility (
   id                TEXT PRIMARY KEY,
   category          TEXT NOT NULL,
-  source_model      TEXT NOT NULL,
-  compatible_models JSONB DEFAULT '[]',
+  source_mobile_id  TEXT NOT NULL REFERENCES catalog_mobiles(id) ON DELETE CASCADE,
+  compatible_mobile_ids JSONB DEFAULT '[]',
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_by        TEXT REFERENCES users(id),
   modified_by       TEXT REFERENCES users(id),
@@ -60,21 +57,28 @@ CREATE TABLE IF NOT EXISTS catalog_compatibility (
 );
 
 CREATE TABLE IF NOT EXISTS catalog_accessories (
-  id                TEXT PRIMARY KEY,
-  category          TEXT NOT NULL,
-  name              TEXT NOT NULL,
-  compatible_models JSONB DEFAULT '[]',
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  created_by        TEXT REFERENCES users(id),
-  modified_by       TEXT REFERENCES users(id),
-  created_on        TEXT,
-  modified_on       TEXT
+  id                    TEXT PRIMARY KEY,
+  category              TEXT NOT NULL,
+  name                  TEXT NOT NULL,
+  compatible_mobile_ids JSONB DEFAULT '[]',
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by            TEXT REFERENCES users(id),
+  modified_by           TEXT REFERENCES users(id),
+  created_on            TEXT,
+  modified_on           TEXT
+);
+
+CREATE TABLE IF NOT EXISTS catalog_categories (
+  id          TEXT PRIMARY KEY,
+  name        TEXT UNIQUE NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Indexes for sync queries (filter by updated_at)
 CREATE INDEX IF NOT EXISTS idx_mobiles_updated     ON catalog_mobiles (updated_at);
 CREATE INDEX IF NOT EXISTS idx_brands_updated      ON catalog_brands (updated_at);
-CREATE INDEX IF NOT EXISTS idx_compat_source       ON catalog_compatibility (source_model);
+CREATE INDEX IF NOT EXISTS idx_compat_source       ON catalog_compatibility (source_mobile_id);
 CREATE INDEX IF NOT EXISTS idx_compat_updated      ON catalog_compatibility (updated_at);
 CREATE INDEX IF NOT EXISTS idx_accessories_updated ON catalog_accessories (updated_at);
 
@@ -83,6 +87,7 @@ ALTER TABLE catalog_brands        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catalog_mobiles       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catalog_compatibility ENABLE ROW LEVEL SECURITY;
 ALTER TABLE catalog_accessories   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catalog_categories    ENABLE ROW LEVEL SECURITY;
 
 -- Allow authenticated users and service role to read/write everything
 -- Adjust these policies for multi-tenant scenarios
@@ -96,4 +101,7 @@ CREATE POLICY "Allow all for service role" ON catalog_compatibility
   USING (true) WITH CHECK (true);
 
 CREATE POLICY "Allow all for service role" ON catalog_accessories
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow all for service role" ON catalog_categories
   USING (true) WITH CHECK (true);

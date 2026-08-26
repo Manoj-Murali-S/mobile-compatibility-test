@@ -18,10 +18,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, MoreHorizontal, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Plus, MoreHorizontal, Pencil, Trash2, Loader2, Power } from 'lucide-react'
 import { BrandDialog } from '@/components/admin/brand-dialog'
 import { getBrands, upsertBrand, deleteBrand } from '@/lib/repository/brands'
-import type { AdminBrand } from '@/lib/admin-mock-data'
+import type { AdminBrand } from '@/lib/admin-types'
 import type { CatalogBrand } from '@/lib/catalog-db'
 import { useAuth } from '@/lib/auth'
 
@@ -77,12 +77,27 @@ export default function BrandsPage() {
 
   const handleSaveBrand = async (brand: AdminBrand) => {
     await upsertBrand({
-      id: brand.id || brand.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      id: brand.id || crypto.randomUUID(),
       name: brand.name,
       logo: brand.logo,
+      status: brand.status,
+      deviceCount: brand.deviceCount,
       updatedAt: new Date().toISOString(),
-    })
+    } as any)
     setIsDialogOpen(false)
+    await loadBrands()
+  }
+
+  const handleToggleStatus = async (brand: AdminBrand) => {
+    const newStatus = brand.status === 'active' ? 'inactive' : 'active'
+    await upsertBrand({
+      id: brand.id,
+      name: brand.name,
+      logo: brand.logo,
+      status: newStatus,
+      deviceCount: brand.deviceCount,
+      updatedAt: new Date().toISOString(),
+    } as any)
     await loadBrands()
   }
 
@@ -163,6 +178,10 @@ export default function BrandsPage() {
                             <DropdownMenuItem onClick={() => handleEditBrand(brand)}>
                               <Pencil className="w-4 h-4 mr-2" />
                               Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleStatus(brand)}>
+                              <Power className="w-4 h-4 mr-2" />
+                              {brand.status === 'active' ? 'Mark Inactive' : 'Mark Active'}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDeleteBrand(brand.id)}

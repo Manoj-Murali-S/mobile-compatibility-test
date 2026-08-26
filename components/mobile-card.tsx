@@ -9,10 +9,7 @@ interface Mobile {
   id: string
   brand: string
   model: string
-  year: string
-  variants: string[]
   image: string
-  accessories: number
 }
 
 interface MobileCardProps {
@@ -52,64 +49,29 @@ export default function MobileCard({ mobile }: MobileCardProps) {
             className="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur hover:bg-white transition-colors shadow-sm"
           >
             <Heart
-              className={`w-5 h-5 transition-colors ${
-                isFavorite
+              className={`w-5 h-5 transition-colors ${isFavorite
                   ? 'fill-red-500 text-red-500'
                   : 'text-muted-foreground'
-              }`}
+                }`}
             />
           </motion.button>
-
-          {/* Year Badge */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute bottom-3 left-3 px-3 py-1 rounded-full bg-accent/20 text-accent text-xs font-semibold backdrop-blur-sm"
-          >
-            {mobile.year}
-          </motion.div>
         </div>
 
         {/* Content Container */}
-        <div className="flex flex-col flex-1 p-4">
-          {/* Title */}
-          <h3 className="font-bold text-foreground mb-1 line-clamp-2">
-            {mobile.model}
-          </h3>
-
-          {/* Variants */}
-          <div className="mb-4 flex-1">
-            <p className="text-xs text-muted-foreground mb-2">Variants:</p>
-            <div className="flex flex-wrap gap-1">
-              {mobile.variants.slice(0, 3).map((variant, idx) => (
-                <motion.span
-                  key={idx}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className="px-2 py-1 rounded text-xs bg-muted text-muted-foreground font-medium"
-                >
-                  {variant}
-                </motion.span>
-              ))}
-              {mobile.variants.length > 3 && (
-                <span className="px-2 py-1 rounded text-xs bg-muted text-muted-foreground font-medium">
-                  +{mobile.variants.length - 3}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Accessories Count */}
-          <div className="mb-4 p-3 rounded-lg bg-muted/50 border border-border">
-            <p className="text-xs text-muted-foreground mb-1">Available Accessories</p>
-            <p className="text-lg font-bold text-accent">
-              {mobile.accessories}+
+        <div className="flex flex-col flex-1 p-4 justify-between">
+          <div className="mb-4">
+            {/* Brand */}
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              {mobile.brand}
             </p>
+            {/* Title */}
+            <h3 className="font-bold text-lg text-foreground line-clamp-2">
+              {mobile.model}
+            </h3>
           </div>
 
           {/* Button */}
-          <Link href={`/details/${mobile.model.replace(/\s+/g, '-')}`}>
+          <Link href={`/details?id=${mobile.id}`}>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

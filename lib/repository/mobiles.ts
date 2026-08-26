@@ -14,100 +14,140 @@ const uuid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slic
 function rowToMobile(row: any): CatalogMobile {
   return {
     id: row.id,
-    brand: row.brand,
+    brandId: row.brand_id ?? row.brandId,
+    brandName: row.brand_name ?? row.brandName,
     model: row.model,
     image: row.image,
-    year: row.year,
-    variants: row.variants ? JSON.parse(row.variants) : [],
+    status: row.status ?? 'active',
     updatedAt: row.updated_at ?? row.updatedAt,
-  }
+  } as CatalogMobile
 }
 
-export async function getMobiles(filters?: { brand?: string }): Promise<CatalogMobile[]> {
+export async function getMobiles(filters?: { brandId?: string }): Promise<CatalogMobile[]> {
   if (isElectron()) {
     const db = getDb()
-    if (filters?.brand) {
-      const rows = await db.allAsync<any>('SELECT * FROM catalog_mobiles WHERE brand = ? ORDER BY model ASC', [filters.brand])
+    if (filters?.brandId) {
+      const rows = await db.allAsync<any>(
+        `SELECT m.*, b.name as brand_name 
+         FROM catalog_mobiles m 
+         LEFT JOIN catalog_brands b ON m.brand_id = b.id 
+         WHERE m.brand_id = ? 
+         ORDER BY m.model ASC`,
+        [filters.brandId]
+      )
       return rows.map(rowToMobile)
     }
-    const rows = await db.allAsync<any>('SELECT * FROM catalog_mobiles ORDER BY brand ASC, model ASC')
+    const rows = await db.allAsync<any>(
+      `SELECT m.*, b.name as brand_name 
+       FROM catalog_mobiles m 
+       LEFT JOIN catalog_brands b ON m.brand_id = b.id 
+       ORDER BY b.name ASC, m.model ASC`
+    )
     return rows.map(rowToMobile)
   }
-  if (filters?.brand) {
-    return catalogDb.mobiles.where('brand').equals(filters.brand).sortBy('model')
+
+  // Dexie
+  let list: CatalogMobile[] = []
+  if (filters?.brandId) {
+    list = await catalogDb.mobiles.where('brandId').equals(filters.brandId).sortBy('model')
+  } else {
+    list = await catalogDb.mobiles.toArray()
   }
-  return catalogDb.mobiles.orderBy('brand').toArray()
+
+  // Resolve brandNames
+  const brands = await catalogDb.brands.toArray()
+  const brandMap = new Map(brands.map(b => [b.id, b.name]))
+  for (const m of list) {
+    ;(m as any).brandName = brandMap.get(m.brandId) ?? 'Unknown Brand'
+  }
+  return list
 }
 
 export async function getMobileById(id: string): Promise<CatalogMobile | undefined> {
   if (isElectron()) {
-    const row = await getDb().getAsync<any>('SELECT * FROM catalog_mobiles WHERE id = ?', [id])
+    const row = await getDb().getAsync<any>(
+      `SELECT m.*, b.name as brand_name 
+       FROM catalog_mobiles m 
+       LEFT JOIN catalog_brands b ON m.brand_id = b.id 
+       WHERE m.id = ?`,
+      [id]
+    )
     return row ? rowToMobile(row) : undefined
   }
-  return catalogDb.mobiles.get(id)
+  const mobile = await catalogDb.mobiles.get(id)
+  if (mobile) {
+    const brand = await catalogDb.brands.get(mobile.brandId)
+    ;(mobile as any).brandName = brand?.name ?? 'Unknown Brand'
+  }
+  return mobile
 }
 
 export async function searchMobiles(query: string, limit = 20): Promise<CatalogMobile[]> {
   const term = query.trim().toLowerCase()
   if (!term) return getMobiles()
+  
   if (isElectron()) {
     const rows = await getDb().allAsync<any>(
-      `SELECT * FROM catalog_mobiles
-       WHERE lower(brand || ' ' || model) LIKE ?
-       ORDER BY brand ASC, model ASC
+      `SELECT m.*, b.name as brand_name 
+       FROM catalog_mobiles m 
+       LEFT JOIN catalog_brands b ON m.brand_id = b.id
+       WHERE lower(b.name || ' ' || m.model) LIKE ?
+       ORDER BY b.name ASC, m.model ASC
        LIMIT ?`,
       [`%${term}%`, limit]
     )
     return rows.map(rowToMobile)
   }
-  return catalogDb.mobiles
-    .filter((m) => `${m.brand} ${m.model}`.toLowerCase().includes(term))
-    .limit(limit)
-    .toArray()
+
+  // Dexie search
+  const list = await catalogDb.mobiles.toArray()
+  const brands = await catalogDb.brands.toArray()
+  const brandMap = new Map(brands.map(b => [b.id, b.name]))
+  
+  return list
+    .map(m => {
+      (m as any).brandName = brandMap.get(m.brandId) ?? 'Unknown Brand'
+      return m
+    })
+    .filter(m => `${(m as any).brandName} ${m.model}`.toLowerCase().includes(term))
+    .slice(0, limit)
 }
 
 export async function upsertMobile(
-  mobile: Partial<CatalogMobile> & { brand: string; model: string; createdBy?: string | null; modifiedBy?: string | null },
+  mobile: Partial<CatalogMobile> & { brandId: string; model: string; createdBy?: string | null; modifiedBy?: string | null },
   skipSync = false
 ): Promise<CatalogMobile> {
   const currentUserId = getCurrentUserId()
   const record: CatalogMobile = {
     id: mobile.id ?? uuid(),
-    brand: mobile.brand.trim(),
+    brandId: mobile.brandId.trim(),
     model: mobile.model.trim(),
     image: mobile.image,
-    year: mobile.year,
-    variants: mobile.variants ?? [],
+    status: mobile.status ?? 'active',
     updatedAt: mobile.updatedAt ?? now(),
-    createdBy: mobile.createdBy ?? currentUserId,
-    modifiedBy: mobile.modifiedBy ?? currentUserId,
-  }
+    createdBy: null,
+    modifiedBy: null,
+  } as CatalogMobile
 
   if (isElectron()) {
     await getDb().runAsync(
-      `INSERT INTO catalog_mobiles (id, brand, model, image, year, variants, status, accessories, created_at, updated_at, created_by, modified_by, created_on, modified_on)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO catalog_mobiles (id, brand_id, model, image, status, created_at, updated_at, created_by, modified_by, created_on, modified_on)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
-         brand = excluded.brand,
+         brand_id = excluded.brand_id,
          model = excluded.model,
          image = excluded.image,
-         year = excluded.year,
-         variants = excluded.variants,
          status = COALESCE(excluded.status, status),
-         accessories = COALESCE(excluded.accessories, accessories),
          updated_at = excluded.updated_at,
          modified_by = excluded.modified_by,
          modified_on = excluded.modified_on`,
       [
-        record.id, record.brand, record.model, record.image ?? null,
-        record.year ?? null,
-        JSON.stringify(record.variants ?? []),
-        (mobile as any).status ?? 'active',
-        (mobile as any).accessories ?? 0,
+        record.id, record.brandId, record.model, record.image ?? null,
+        record.status ?? 'active',
         (mobile as any).createdAt ?? now(),
         record.updatedAt,
-        record.createdBy ?? null,
-        record.modifiedBy ?? null,
+        null,
+        null,
         (mobile as any).createdAt ?? now(),
         record.updatedAt,
       ]

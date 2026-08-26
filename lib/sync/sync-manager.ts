@@ -23,6 +23,7 @@ import { upsertBrand } from '../repository/brands'
 import { upsertMobile } from '../repository/mobiles'
 import { upsertCompatibility } from '../repository/compatibility'
 import { upsertAccessory } from '../repository/accessories'
+import { upsertCategory } from '../repository/categories'
 
 export interface SyncStatus {
   pendingCount: number
@@ -44,6 +45,7 @@ const SUPABASE_TABLE_MAP: Record<string, string> = {
   catalog_mobiles: 'catalog_mobiles',
   catalog_compatibility: 'catalog_compatibility',
   catalog_accessories: 'catalog_accessories',
+  catalog_categories: 'catalog_categories',
 }
 
 // ─── PUSH local changes to Supabase ────────────────────────────────────────
@@ -106,9 +108,9 @@ async function pullRemoteChanges(lastSyncAt: string | null): Promise<{ pulled: n
       remote: 'catalog_mobiles',
       handler: async (row) => {
         await upsertMobile({
-          id: row.id, brand: row.brand, model: row.model,
-          year: row.year,
-          variants: Array.isArray(row.variants) ? row.variants : JSON.parse(row.variants ?? '[]'),
+          id: row.id, 
+          brandId: row.brand_id ?? row.brandId, 
+          model: row.model,
           updatedAt: row.updated_at ?? row.updatedAt,
         }, true)
       },
@@ -117,11 +119,12 @@ async function pullRemoteChanges(lastSyncAt: string | null): Promise<{ pulled: n
       remote: 'catalog_compatibility',
       handler: async (row) => {
         await upsertCompatibility({
-          id: row.id, category: row.category,
-          sourceModel: row.source_model ?? row.sourceModel,
-          compatibleModels: Array.isArray(row.compatible_models)
-            ? row.compatible_models
-            : JSON.parse(row.compatible_models ?? '[]'),
+          id: row.id, 
+          category: row.category,
+          sourceMobileId: row.source_mobile_id ?? row.sourceMobileId,
+          compatibleMobileIds: Array.isArray(row.compatible_mobile_ids)
+            ? row.compatible_mobile_ids
+            : JSON.parse(row.compatible_mobile_ids ?? row.compatible_models ?? '[]'),
           updatedAt: row.updated_at ?? row.updatedAt,
         } as any, true)
       },
@@ -130,12 +133,25 @@ async function pullRemoteChanges(lastSyncAt: string | null): Promise<{ pulled: n
       remote: 'catalog_accessories',
       handler: async (row) => {
         await upsertAccessory({
-          id: row.id, category: row.category, name: row.name,
-          compatibleModels: Array.isArray(row.compatible_models)
-            ? row.compatible_models
-            : JSON.parse(row.compatible_models ?? '[]'),
+          id: row.id, 
+          category: row.category, 
+          name: row.name,
+          compatibleMobileIds: Array.isArray(row.compatible_mobile_ids)
+            ? row.compatible_mobile_ids
+            : JSON.parse(row.compatible_mobile_ids ?? row.compatible_models ?? '[]'),
           updatedAt: row.updated_at ?? row.updatedAt,
         } as any, true)
+      },
+    },
+    {
+      remote: 'catalog_categories',
+      handler: async (row) => {
+        await upsertCategory({
+          id: row.id,
+          name: row.name,
+          createdAt: row.created_at ?? row.createdAt,
+          updatedAt: row.updated_at ?? row.updatedAt,
+        }, true)
       },
     },
   ]

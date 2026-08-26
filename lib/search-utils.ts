@@ -6,15 +6,6 @@
  */
 export const SEARCH_ALIASES: Record<string, string[]> = {
   'Galaxy S24': ['S24', 's24', 'S24', 'Galaxy S24', 'galaxy s24'],
-  'Galaxy S24 Ultra': ['S24 Ultra', 'S24U', 's24u', 'Ultra', 'ultra'],
-  'Galaxy S24+': ['S24+', 'S24 Plus', 's24+'],
-  'iPhone 15': ['IP15', 'iPhone 15', 'iphone 15', '15'],
-  'iPhone 15 Pro': ['IP15P', 'iPhone 15 Pro', 'iphone 15 pro', '15 pro'],
-  'iPhone 15 Pro Max': ['IP15PM', 'iPhone 15 Pro Max', 'iphone 15 pro max', '15 pro max'],
-  'Xiaomi 13': ['Mi 13', 'mi 13', 'xiaomi 13', '13'],
-  'Xiaomi 13 Ultra': ['Mi 13U', 'mi 13 ultra', 'Ultra', '13 ultra'],
-  'Redmi Note 12': ['Note 12', 'note 12', 'redmi note 12', 'note12'],
-  'Redmi 12': ['Redmi 12', 'redmi 12', '12'],
 };
 
 /**

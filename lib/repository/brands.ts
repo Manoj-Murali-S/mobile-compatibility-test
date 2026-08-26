@@ -15,24 +15,43 @@ function rowToBrand(row: any): CatalogBrand {
     id: row.id,
     name: row.name,
     logo: row.logo ?? '📱',
+    status: row.status ?? 'active',
+    deviceCount: row.device_count ?? row.deviceCount ?? 0,
     updatedAt: row.updated_at ?? row.updatedAt,
-  }
+  } as CatalogBrand
 }
 
 export async function getBrands(): Promise<CatalogBrand[]> {
   if (isElectron()) {
-    const rows = await getDb().allAsync<any>('SELECT * FROM catalog_brands ORDER BY name ASC')
+    const rows = await getDb().allAsync<any>(
+      `SELECT b.*, (SELECT COUNT(*) FROM catalog_mobiles m WHERE m.brand_id = b.id) as device_count 
+       FROM catalog_brands b 
+       ORDER BY b.name ASC`
+    )
     return rows.map(rowToBrand)
   }
-  return catalogDb.brands.orderBy('name').toArray()
+  const list = await catalogDb.brands.orderBy('name').toArray()
+  for (const b of list) {
+    (b as any).deviceCount = await catalogDb.mobiles.where('brandId').equals(b.id).count()
+  }
+  return list
 }
 
 export async function getBrandById(id: string): Promise<CatalogBrand | undefined> {
   if (isElectron()) {
-    const row = await getDb().getAsync<any>('SELECT * FROM catalog_brands WHERE id = ?', [id])
+    const row = await getDb().getAsync<any>(
+      `SELECT b.*, (SELECT COUNT(*) FROM catalog_mobiles m WHERE m.brand_id = b.id) as device_count 
+       FROM catalog_brands b 
+       WHERE b.id = ?`,
+      [id]
+    )
     return row ? rowToBrand(row) : undefined
   }
-  return catalogDb.brands.get(id)
+  const brand = await catalogDb.brands.get(id)
+  if (brand) {
+    (brand as any).deviceCount = await catalogDb.mobiles.where('brandId').equals(brand.id).count()
+  }
+  return brand
 }
 
 export async function upsertBrand(
@@ -43,8 +62,8 @@ export async function upsertBrand(
   const record: CatalogBrand = { 
     ...brand, 
     updatedAt: brand.updatedAt ?? now(),
-    createdBy: brand.createdBy ?? currentUserId,
-    modifiedBy: brand.modifiedBy ?? currentUserId,
+    createdBy: null,
+    modifiedBy: null,
   } as CatalogBrand
   if (isElectron()) {
     await getDb().runAsync(
@@ -64,8 +83,8 @@ export async function upsertBrand(
         (record as any).status ?? 'active',
         (record as any).createdAt ?? now(),
         record.updatedAt,
-        (record as any).createdBy ?? null,
-        (record as any).modifiedBy ?? null,
+        null,
+        null,
         (record as any).createdAt ?? now(),
         record.updatedAt,
       ]

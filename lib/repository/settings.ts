@@ -51,3 +51,37 @@ export async function getAllSettings(): Promise<Record<string, unknown>> {
   const all = await catalogDb.settings.toArray()
   return Object.fromEntries(all.map((s) => [s.key, s.value]))
 }
+import { clearCatalogDatabase } from '../catalog-db'
+
+export async function resetSystemDatabase(): Promise<void> {
+  // Clear Dexie (local browser DB)
+  await clearCatalogDatabase()
+
+  // Clear SQLite (Electron DB) if applicable
+  if (isElectron()) {
+    const db = getDb()
+    await db.runAsync('DELETE FROM catalog_brands')
+    await db.runAsync('DELETE FROM catalog_mobiles')
+    await db.runAsync('DELETE FROM catalog_compatibility')
+    await db.runAsync('DELETE FROM catalog_accessories')
+    await db.runAsync('DELETE FROM catalog_categories')
+    await db.runAsync('DELETE FROM catalog_settings')
+    await db.runAsync('DELETE FROM sync_queue')
+    
+    // Seed default categories in SQLite again
+    const nowStr = new Date().toISOString()
+    const defaults = [
+      ['tempered-glass', 'Tempered Glass'],
+      ['back-case', 'Back Case'],
+      ['silicone-cover', 'Silicone Cover'],
+      ['flip-cover', 'Flip Cover'],
+      ['camera-protector', 'Camera Protector']
+    ]
+    for (const [id, name] of defaults) {
+      await db.runAsync(
+        'INSERT INTO catalog_categories (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)',
+        [id, name, nowStr, nowStr]
+      )
+    }
+  }
+}

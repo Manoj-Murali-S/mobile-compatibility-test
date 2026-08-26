@@ -77,6 +77,74 @@ ipcMain.handle('get-db-path', () => DB_PATH)
 // This keeps the native sqlite module in the main process
 let db: any = null
 
+function migrateSchema(database: any) {
+  try {
+    // Ensure catalog_categories table exists
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS catalog_categories (
+        id          TEXT PRIMARY KEY,
+        name        TEXT UNIQUE NOT NULL,
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL
+      );
+    `);
+
+    // Seed default categories if empty
+    const count = database.prepare('SELECT COUNT(*) as count FROM catalog_categories').get().count;
+    if (count === 0) {
+      const now = new Date().toISOString();
+      const stmt = database.prepare('INSERT INTO catalog_categories (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)');
+      const defaults = [
+        ['tempered-glass', 'Tempered Glass'],
+        ['back-case', 'Back Case'],
+        ['silicone-cover', 'Silicone Cover'],
+        ['flip-cover', 'Flip Cover'],
+        ['camera-protector', 'Camera Protector']
+      ];
+      for (const [id, name] of defaults) {
+        stmt.run(id, name, now, now);
+      }
+      console.log('>>> Migrated: Seeded default categories in SQLite (Electron)');
+    }
+
+    const columns = database.prepare('PRAGMA table_info(catalog_mobiles)').all()
+    const columnNames = columns.map((col: any) => col.name)
+    
+    if (columnNames.includes('brand') && !columnNames.includes('brand_id')) {
+      console.log('>>> Migrated: Old schema detected. Wiping database for fresh start...');
+      database.exec(`
+        DROP TABLE IF EXISTS sync_queue;
+        DROP TABLE IF EXISTS catalog_settings;
+        DROP TABLE IF EXISTS catalog_categories;
+        DROP TABLE IF EXISTS catalog_accessories;
+        DROP TABLE IF EXISTS catalog_compatibility;
+        DROP TABLE IF EXISTS catalog_mobiles;
+        DROP TABLE IF EXISTS catalog_brands;
+        DROP TABLE IF EXISTS users;
+      `);
+      
+      const schemaSql = fs.readFileSync(path.join(__dirname, '..', 'lib', 'sqlite', 'schema.sql'), 'utf8')
+      database.exec(schemaSql)
+      return; // Early return since everything is wiped and recreated!
+    }
+    
+    if (columnNames.includes('year')) {
+      database.exec('ALTER TABLE catalog_mobiles DROP COLUMN year;')
+      console.log('>>> Migrated: Dropped "year" column from catalog_mobiles')
+    }
+    if (columnNames.includes('variants')) {
+      database.exec('ALTER TABLE catalog_mobiles DROP COLUMN variants;')
+      console.log('>>> Migrated: Dropped "variants" column from catalog_mobiles')
+    }
+    if (columnNames.includes('accessories')) {
+      database.exec('ALTER TABLE catalog_mobiles DROP COLUMN accessories;')
+      console.log('>>> Migrated: Dropped "accessories" column from catalog_mobiles')
+    }
+  } catch (err) {
+    console.error('>>> Failed to migrate SQLite schema:', err)
+  }
+}
+
 function getOrOpenDb() {
   if (db) return db
   const { DatabaseSync } = require('node:sqlite')
@@ -96,6 +164,8 @@ function getOrOpenDb() {
     } catch (err) {
       console.error('>>> Failed to initialize schema:', err)
     }
+  } else {
+    migrateSchema(db)
   }
 
   // Create default superadmin if it doesn't exist

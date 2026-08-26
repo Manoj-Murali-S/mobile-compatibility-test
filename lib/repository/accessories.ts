@@ -15,9 +15,11 @@ function rowToAccessory(row: any): CatalogAccessory {
     id: row.id,
     category: row.category,
     name: row.name,
-    compatibleModels: row.compatible_models ? JSON.parse(row.compatible_models) : [],
+    compatibleMobileIds: row.compatible_mobile_ids 
+      ? JSON.parse(row.compatible_mobile_ids) 
+      : (row.compatible_models ? JSON.parse(row.compatible_models) : []),
     updatedAt: row.updated_at ?? row.updatedAt,
-  }
+  } as CatalogAccessory
 }
 
 export async function getAccessories(filters?: { category?: string }): Promise<CatalogAccessory[]> {
@@ -44,26 +46,26 @@ export async function upsertAccessory(
   const record = { 
     ...acc, 
     updatedAt: acc.updatedAt ?? now(),
-    createdBy: acc.createdBy ?? currentUserId,
-    modifiedBy: acc.modifiedBy ?? currentUserId,
+    createdBy: null,
+    modifiedBy: null,
   }
   if (isElectron()) {
     await getDb().runAsync(
-      `INSERT INTO catalog_accessories (id, category, name, compatible_models, updated_at, created_by, modified_by, created_on, modified_on)
+      `INSERT INTO catalog_accessories (id, category, name, compatible_mobile_ids, updated_at, created_by, modified_by, created_on, modified_on)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          category = excluded.category,
          name = excluded.name,
-         compatible_models = excluded.compatible_models,
+         compatible_mobile_ids = excluded.compatible_mobile_ids,
          updated_at = excluded.updated_at,
          modified_by = excluded.modified_by,
          modified_on = excluded.modified_on`,
       [
         record.id, record.category, record.name,
-        JSON.stringify(record.compatibleModels ?? []),
+        JSON.stringify(record.compatibleMobileIds ?? []),
         record.updatedAt,
-        record.createdBy ?? null,
-        record.modifiedBy ?? null,
+        null,
+        null,
         (acc as any).createdAt ?? now(),
         record.updatedAt,
       ]

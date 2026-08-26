@@ -7,7 +7,6 @@ import { RefreshCw } from 'lucide-react'
 import SearchHeader from '@/components/search-header'
 import BrandTabs from '@/components/brand-tabs'
 import MobileGrid from '@/components/mobile-grid'
-import CompatibilityExplorer from '@/components/compatibility-explorer'
 import RecentSearches from '@/components/recent-searches'
 import CommandPalette from '@/components/command-palette'
 import SyncStatusBar from '@/components/sync-status-bar'
@@ -19,7 +18,8 @@ import { seedCatalogIfEmpty } from '@/lib/catalog-repository'
 import { useSync } from '@/lib/sync/use-sync'
 
 export default function Home() {
-  const [selectedBrand, setSelectedBrand] = useState('Samsung')
+  const [selectedBrand, setSelectedBrand] = useState('')
+  const [selectedBrandId, setSelectedBrandId] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [showRecentSearches, setShowRecentSearches] = useState(false)
@@ -44,8 +44,9 @@ export default function Home() {
       if (mounted) {
         setDynamicBrands(brandsData)
         setDynamicMobiles(mobilesData)
-        if (brandsData.length > 0 && selectedBrand === 'Samsung') {
+        if (brandsData.length > 0 && !selectedBrand) {
           setSelectedBrand(brandsData[0].name)
+          setSelectedBrandId(brandsData[0].id)
         }
         setLoading(false)
       }
@@ -77,7 +78,10 @@ export default function Home() {
 
   const handleBrandSelect = (brand: string) => {
     setSelectedBrand(brand)
+    const found = dynamicBrands.find(b => b.name === brand)
+    setSelectedBrandId(found?.id ?? '')
     setShowRecentSearches(false)
+    setSearchQuery('')
   }
 
   const handleRecentSearchClick = (search: string) => {
@@ -169,14 +173,11 @@ export default function Home() {
         </motion.div>
 
         {/* Compatibility results for a searched model, or the regular brand browser */}
-        {searchQuery.trim() ? (
-          <CompatibilityExplorer query={searchQuery.trim()} />
-        ) : (
           <MobileGrid
             brand={selectedBrand}
+            brandId={selectedBrandId}
             searchQuery={searchQuery}
           />
-        )}
       </div>
 
       {/* Command Palette */}

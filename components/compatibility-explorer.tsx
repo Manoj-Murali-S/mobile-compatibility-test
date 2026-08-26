@@ -1,16 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Grid2X2, List, SearchX, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import MobileCard from '@/components/mobile-card'
-import {
-  ACCESSORY_TYPES,
-  getCompatibleDevices,
-  hasCompatibilityData,
-  type AccessoryType,
-} from '@/lib/mock-compatibility'
+import { ACCESSORY_TYPES, type AccessoryType, type CompatibilityDevice } from '@/lib/mock-compatibility'
+import { getCompatibleDevicesAsync, checkHasCompatibilityDataAsync } from '@/lib/repository/compatibility'
 
 interface CompatibilityExplorerProps {
   query: string
@@ -19,9 +15,44 @@ interface CompatibilityExplorerProps {
 export default function CompatibilityExplorer({ query }: CompatibilityExplorerProps) {
   const [activeType, setActiveType] = useState<AccessoryType>('tempered-glass')
   const [view, setView] = useState<'grid' | 'list'>('grid')
-  const devices = useMemo(() => getCompatibleDevices(query, activeType), [query, activeType])
-  const hasData = hasCompatibilityData(query)
+
+  const [devices, setDevices] = useState<CompatibilityDevice[]>([])
+  const [hasData, setHasData] = useState<boolean>(true)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+
   const activeCategory = ACCESSORY_TYPES.find((category) => category.id === activeType)
+
+  useEffect(() => {
+    let mounted = true
+    setIsLoading(true)
+
+    async function fetchData() {
+      try {
+        const has = await checkHasCompatibilityDataAsync(query)
+        if (mounted) setHasData(has)
+
+        if (has) {
+          const fetchedDevices = await getCompatibleDevicesAsync(query, activeType)
+          if (mounted) setDevices(fetchedDevices)
+        }
+      } catch (err) {
+        console.error('Failed to fetch compatibility data', err)
+      } finally {
+        if (mounted) setIsLoading(false)
+      }
+    }
+
+    void fetchData()
+    return () => { mounted = false }
+  }, [query, activeType])
+
+  if (isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center rounded-3xl border border-dashed border-border bg-card/60">
+        <p className="text-muted-foreground animate-pulse">Loading compatibility data...</p>
+      </div>
+    )
+  }
 
   if (!hasData) {
     return (
@@ -59,7 +90,8 @@ export default function CompatibilityExplorer({ query }: CompatibilityExplorerPr
 
       <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Accessory types">
         {ACCESSORY_TYPES.map((category) => {
-          const count = getCompatibleDevices(query, category.id).length
+          // Since it's dynamic now, we don't have synchronous counts easily without complex querying. 
+          // We'll omit the precise count for inactive tabs, or just use a generic label.
           const isActive = activeType === category.id
           return (
             <button
@@ -67,14 +99,13 @@ export default function CompatibilityExplorer({ query }: CompatibilityExplorerPr
               role="tab"
               aria-selected={isActive}
               onClick={() => setActiveType(category.id)}
-              className={`flex shrink-0 items-center gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${
-                isActive ? 'border-accent bg-accent text-accent-foreground shadow-sm' : 'border-border bg-card hover:border-accent/50'
-              }`}
+              className={`flex shrink-0 items-center gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${isActive ? 'border-accent bg-accent text-accent-foreground shadow-sm' : 'border-border bg-card hover:border-accent/50'
+                }`}
             >
               <span className="text-lg" aria-hidden="true">{category.icon}</span>
               <span>
                 <span className="block text-sm font-semibold">{category.shortLabel}</span>
-                <span className={`block text-xs ${isActive ? 'text-accent-foreground/75' : 'text-muted-foreground'}`}>{count} devices</span>
+                {isActive && <span className="block text-xs text-accent-foreground/75">{devices.length} devices</span>}
               </span>
             </button>
           )
@@ -109,7 +140,7 @@ export default function CompatibilityExplorer({ query }: CompatibilityExplorerPr
                 </div>
               </div>
               <a
-                href={`/details/${device.model.replace(/\s+/g, '-')}`}
+                href={`/details?id=${device.model.toLowerCase().replace(/\s+/g, '-')}`}
                 className="inline-flex h-7 items-center rounded-lg border border-border px-2.5 text-sm font-medium transition-colors hover:bg-muted"
               >
                 Details <ArrowRight className="ml-1.5 h-3.5 w-3.5" />

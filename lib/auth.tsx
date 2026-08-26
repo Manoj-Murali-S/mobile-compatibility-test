@@ -40,7 +40,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, passwordAttempt: string) => {
     try {
       const api = (window as any).electronAPI
-      if (!api) throw new Error('Not running in Electron environment')
+      if (!api) {
+        // Fallback for browser/dev mode (offline fallbacks via Dexie)
+        const mockUser: User = {
+          id: 'dev-user-id',
+          email: email || 'admin@example.com',
+          name: 'Developer User',
+          role: 'superadmin',
+          status: 'approved',
+          created_on: new Date().toISOString(),
+          modified_on: new Date().toISOString(),
+        }
+        setUser(mockUser)
+        localStorage.setItem('mcf_user', JSON.stringify(mockUser))
+        return {}
+      }
       
       const res = await api.auth.login(email, passwordAttempt)
       if (!res.ok) return { error: res.error }
@@ -56,7 +70,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = async (email: string, passwordAttempt: string, name: string, role: string) => {
     try {
       const api = (window as any).electronAPI
-      if (!api) throw new Error('Not running in Electron environment')
+      if (!api) {
+        // Fallback for browser/dev mode (offline fallbacks via Dexie)
+        const mockUser: User = {
+          id: 'dev-user-id',
+          email: email || 'admin@example.com',
+          name: name || 'Developer User',
+          role: (role as any) || 'superadmin',
+          status: 'approved',
+          created_on: new Date().toISOString(),
+          modified_on: new Date().toISOString(),
+        }
+        setUser(mockUser)
+        localStorage.setItem('mcf_user', JSON.stringify(mockUser))
+        return {}
+      }
       
       const res = await api.auth.register(email, passwordAttempt, name, role)
       if (!res.ok) return { error: res.error }

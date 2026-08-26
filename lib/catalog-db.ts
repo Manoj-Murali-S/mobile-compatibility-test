@@ -1,11 +1,12 @@
 import Dexie, { type Table } from 'dexie'
 
 export type CatalogBrand = { id: string; name: string; logo?: string; updatedAt: string }
-export type CatalogMobile = { id: string; model: string; brand: string; image?: string; year?: number; variants?: string[]; updatedAt: string }
-export type CatalogCompatibility = { id: string; category: string; sourceModel: string; compatibleModels: string[]; updatedAt: string }
-export type CatalogAccessory = { id: string; category: string; name: string; compatibleModels: string[]; updatedAt: string }
+export type CatalogMobile = { id: string; model: string; brandId: string; image?: string; status?: string; updatedAt: string }
+export type CatalogCompatibility = { id: string; category: string; sourceMobileId: string; compatibleMobileIds: string[]; updatedAt: string }
+export type CatalogAccessory = { id: string; category: string; name: string; compatibleMobileIds: string[]; updatedAt: string }
 export type CatalogSetting = { key: string; value: unknown; updatedAt: string }
 export type SyncQueueItem = { id?: number; table: string; recordId: string; operation: 'upsert' | 'delete'; payload?: unknown; updatedAt: string }
+export type CatalogCategory = { id: string; name: string; createdAt: string; updatedAt: string }
 
 export class CatalogDatabase extends Dexie {
   brands!: Table<CatalogBrand, string>
@@ -14,6 +15,7 @@ export class CatalogDatabase extends Dexie {
   accessories!: Table<CatalogAccessory, string>
   settings!: Table<CatalogSetting, string>
   syncQueue!: Table<SyncQueueItem, number>
+  categories!: Table<CatalogCategory, string>
 
   constructor() {
     super('mobile-compatibility-finder')
@@ -24,6 +26,24 @@ export class CatalogDatabase extends Dexie {
       accessories: 'id, category, updatedAt',
       settings: 'key, updatedAt',
       syncQueue: '++id, table, recordId, updatedAt',
+    })
+    this.version(2).stores({
+      brands: 'id, name, updatedAt',
+      mobiles: 'id, model, brand, updatedAt',
+      compatibility: 'id, category, sourceModel, updatedAt',
+      accessories: 'id, category, updatedAt',
+      settings: 'key, updatedAt',
+      syncQueue: '++id, table, recordId, updatedAt',
+      categories: 'id, name, updatedAt',
+    })
+    this.version(3).stores({
+      brands: 'id, name, updatedAt',
+      mobiles: 'id, model, brandId, updatedAt',
+      compatibility: 'id, category, sourceMobileId, updatedAt',
+      accessories: 'id, category, updatedAt',
+      settings: 'key, updatedAt',
+      syncQueue: '++id, table, recordId, updatedAt',
+      categories: 'id, name, updatedAt',
     })
   }
 }
@@ -46,6 +66,7 @@ export async function clearCatalogDatabase() {
   await Promise.all([
     catalogDb.brands.clear(), catalogDb.mobiles.clear(), catalogDb.compatibility.clear(),
     catalogDb.accessories.clear(), catalogDb.settings.clear(), catalogDb.syncQueue.clear(),
+    catalogDb.categories.clear(),
   ])
 }
 

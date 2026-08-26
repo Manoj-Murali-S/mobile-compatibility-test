@@ -67,7 +67,7 @@ export function SearchExample() {
 ```typescript
 interface MobileSearchProps<T extends SearchItem> {
   // Required
-  items: T;                              // Item or array to search
+  items: T[];                             // Array of items to search
   onSearch: (query: string, brand: string) => void;  // Search callback
   
   // Optional

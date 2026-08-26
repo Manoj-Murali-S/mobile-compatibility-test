@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MobileSearch } from '@/components/mobile-search';
-import { MOCK_MOBILES, getMobilesByBrand } from '@/lib/mock-data';
+import { getBrands } from '@/lib/repository/brands';
+import { getMobiles } from '@/lib/repository/mobiles';
+import type { CatalogMobile, CatalogBrand } from '@/lib/catalog-db';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,24 +15,53 @@ import { Button } from '@/components/ui/button';
  * Showcases the reusable search component with all features
  */
 export default function SearchDemoPage() {
-  const [selectedBrand, setSelectedBrand] = useState<string>('Samsung');
+  const [selectedBrand, setSelectedBrand] = useState<string>('');
   const [lastSelected, setLastSelected] = useState<string>('');
   const [searchLog, setSearchLog] = useState<Array<{ query: string; brand: string }>>([]);
+  const [brands, setBrands] = useState<string[]>([]);
+  const [brandDevices, setBrandDevices] = useState<CatalogMobile[]>([]);
 
-  // Get devices for selected brand
-  const brandDevices = MOCK_MOBILES[selectedBrand] || [];
+  // Fetch all brands on mount
+  useEffect(() => {
+    let mounted = true;
+    async function loadBrands() {
+      try {
+        const data = await getBrands();
+        if (mounted && data.length > 0) {
+          setBrands(data.map(b => b.name).sort());
+        }
+      } catch (err) {
+        console.error('Failed to load brands:', err);
+      }
+    }
+    void loadBrands();
+    return () => { mounted = false; };
+  }, []);
+
+  // Fetch mobiles when selectedBrand changes
+  useEffect(() => {
+    let mounted = true;
+    async function loadMobiles() {
+      try {
+        const data = await getMobiles();
+        const filtered = data.filter(d => d.brand === selectedBrand);
+        if (mounted) {
+          setBrandDevices(filtered);
+        }
+      } catch (err) {
+        console.error('Failed to load mobiles:', err);
+      }
+    }
+    void loadMobiles();
+    return () => { mounted = false; };
+  }, [selectedBrand]);
 
   // Transform devices to SearchItem format
   const searchItems = brandDevices.map(device => ({
     id: device.id,
     name: device.model,
     brand: device.brand,
-    year: device.year,
-    variants: device.variants.length,
-    accessories: device.accessories,
   }));
-
-  const brands = Object.keys(MOCK_MOBILES).sort();
 
   return (
     <main className="min-h-screen bg-background">
@@ -75,11 +106,10 @@ export default function SearchDemoPage() {
                   setSelectedBrand(brand);
                   setLastSelected('');
                 }}
-                className={`px-3 py-2 rounded-lg font-medium text-sm transition-all ${
-                  selectedBrand === brand
-                    ? 'bg-accent text-accent-foreground shadow-lg'
-                    : 'bg-muted hover:bg-muted/80 text-foreground'
-                }`}
+                className={`px-3 py-2 rounded-lg font-medium text-sm transition-all ${selectedBrand === brand
+                  ? 'bg-accent text-accent-foreground shadow-lg'
+                  : 'bg-muted hover:bg-muted/80 text-foreground'
+                  }`}
               >
                 {brand}
               </button>
@@ -116,21 +146,7 @@ export default function SearchDemoPage() {
               onSelect={(item) => {
                 setLastSelected(item.name);
               }}
-              renderResult={(item, query, isSelected) => (
-                <div className={`flex items-center justify-between gap-3 ${isSelected ? 'text-accent' : ''}`}>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{item.name}</div>
-                    <div className="flex gap-3 text-xs text-muted-foreground/70 mt-1">
-                      <span>{item.variants} variants</span>
-                      <span>•</span>
-                      <span>{item.accessories} accessories</span>
-                    </div>
-                  </div>
-                  <span className="text-xs px-2 py-1 bg-muted rounded text-muted-foreground/70">
-                    {item.year}
-                  </span>
-                </div>
-              )}
+
             />
           </div>
         </motion.div>
@@ -219,7 +235,7 @@ export default function SearchDemoPage() {
   onSelect={(item) => console.log('Selected:', item)}
 />
             `}</p>
-            <p className="text-accent/80 text-xs">See mobile-search.examples.tsx for more examples</p>
+
           </div>
         </motion.div>
       </div>

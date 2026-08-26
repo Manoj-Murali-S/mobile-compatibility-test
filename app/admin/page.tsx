@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { mockSystemLogs } from '@/lib/admin-mock-data'
+
 import { Package, Smartphone, Link2, TrendingUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { getBrandCount } from '@/lib/repository/brands'
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockSystemLogs.slice(0, 5).map((log) => (
+              {[].slice(0, 5).map((log: any) => (
                 <div key={log.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
                   <div className="mt-1">
                     {log.status === 'success' && (

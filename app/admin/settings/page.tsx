@@ -13,10 +13,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { mockSystemLogs } from '@/lib/admin-mock-data'
+
 import { AlertCircle as AlertIcon } from 'lucide-react'
 import OfflineSyncSettings from '@/components/offline-sync-settings'
 import { ThemeSwitcher } from '@/components/theme-switcher'
+import { resetSystemDatabase } from '@/lib/repository/settings'
 
 export default function SettingsPage() {
   return (
@@ -76,6 +77,41 @@ export default function SettingsPage() {
         <CardContent><ThemeSwitcher /></CardContent>
       </Card>
 
+      {/* Danger Zone */}
+      <Card className="border-destructive/30 shadow-destructive/5">
+        <CardHeader>
+          <CardTitle className="text-base text-destructive font-semibold">Danger Zone</CardTitle>
+          <CardDescription>Permanently clear local data and start over.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border border-destructive/20 rounded-lg bg-destructive/5">
+            <div>
+              <p className="font-semibold text-sm text-foreground">Reset Catalog Database</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                This will delete all brands, mobiles, categories, and compatibility rules. This action cannot be undone.
+              </p>
+            </div>
+            <Button 
+              variant="destructive"
+              onClick={async () => {
+                if (confirm("WARNING: This will permanently wipe all local database records (SQLite and IndexedDB) and re-seed default categories. Are you absolutely sure?")) {
+                  try {
+                    await resetSystemDatabase()
+                    alert("Database reset completed successfully. The application will now reload.")
+                    window.location.reload()
+                  } catch (err) {
+                    console.error(err)
+                    alert("Failed to reset database.")
+                  }
+                }
+              }}
+            >
+              Reset Database
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* System Information */}
       <Card>
         <CardHeader>
@@ -115,7 +151,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Activity Log */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle className="text-base">System Activity Log</CardTitle>
           <CardDescription>Recent administrative actions and system events</CardDescription>
@@ -169,7 +205,7 @@ export default function SettingsPage() {
             </Table>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Danger Zone */}
       <Card className="border-destructive/50 bg-destructive/5">

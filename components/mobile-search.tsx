@@ -20,7 +20,7 @@ import { useSearch, SearchItem } from '@/hooks/use-search';
 import { useKeyboardNavigation } from '@/hooks/use-keyboard-navigation';
 
 export interface MobileSearchProps<T extends SearchItem> {
-  items: T;
+  items: T[];
   searchFields?: (keyof T)[];
   placeholder?: string;
   debounceMs?: number;
@@ -41,8 +41,6 @@ interface ResultItem extends SearchItem {
   id: string;
   name: string;
   brand?: string;
-  variants?: number;
-  accessories?: number;
 }
 
 /**
@@ -73,7 +71,7 @@ export function MobileSearch<T extends SearchItem>({
   const [showResults, setShowResults] = useState(false);
 
   const { query: searchQuery, isLoading, results } = useSearch(
-    Array.isArray(items) ? items : [items],
+    items,
     searchFields,
     debounceMs
   );
@@ -146,8 +144,8 @@ export function MobileSearch<T extends SearchItem>({
     }
   };
 
-  const displayResults = showResults && (query.trim() || recentSearches.length > 0);
-  const hasNoResults = query.trim() && !isLoading && results.length === 0;
+  const displayResults = showResults && (!!query.trim() || recentSearches.length > 0);
+  const hasNoResults = !!query.trim() && !isLoading && results.length === 0;
 
   return (
     <div className="w-full">
@@ -375,16 +373,7 @@ function DefaultResultItem({
             </span>
           ))}
         </div>
-        {(item.variants || item.accessories) && (
-          <div className="flex gap-3 text-xs text-muted-foreground/70 mt-1">
-            {item.variants !== undefined && (
-              <span>{item.variants} variants</span>
-            )}
-            {item.accessories !== undefined && (
-              <span>{item.accessories} accessories</span>
-            )}
-          </div>
-        )}
+
       </div>
       {item.brand && (
         <span className="text-xs px-2 py-0.5 bg-muted rounded text-muted-foreground/70 whitespace-nowrap">

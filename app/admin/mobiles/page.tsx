@@ -19,22 +19,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Plus, MoreHorizontal, Pencil, Trash2, Search, Loader2 } from 'lucide-react'
+import { Plus, MoreHorizontal, Pencil, Trash2, Search, Loader2, Power } from 'lucide-react'
 import { MobileDialog } from '@/components/admin/mobile-dialog'
 import { getMobiles, upsertMobile, deleteMobile } from '@/lib/repository/mobiles'
+import { getBrands, upsertBrand } from '@/lib/repository/brands'
 import { useAuth } from '@/lib/auth'
-import type { AdminMobile } from '@/lib/admin-mock-data'
+import type { AdminMobile } from '@/lib/admin-types'
 import type { CatalogMobile } from '@/lib/catalog-db'
 
 function toAdminMobile(m: CatalogMobile): AdminMobile {
   return {
     id: m.id,
     model: m.model,
-    brand: m.brand,
+    brand: (m as any).brandName ?? m.brandId,
+    brandId: m.brandId,
     image: m.image,
-    releaseYear: m.year ?? new Date().getFullYear(),
-    variants: m.variants?.length ?? 1,
-    accessories: (m as any).accessories ?? 0,
     status: (m as any).status ?? 'active',
     createdAt: (m as any).createdAt ?? new Date().toLocaleDateString(),
     updatedAt: new Date(m.updatedAt).toLocaleDateString(),
@@ -86,15 +85,46 @@ export default function MobilesPage() {
   }
 
   const handleSaveMobile = async (mobile: AdminMobile) => {
+    let finalBrandId = mobile.brandId
+
+    // Resolve matching brand name
+    const allBrands = await getBrands()
+    const matchedBrand = allBrands.find(b => b.name.toLowerCase() === mobile.brand.trim().toLowerCase())
+    if (matchedBrand) {
+      finalBrandId = matchedBrand.id
+    } else if (mobile.brand.trim()) {
+      // Create brand dynamically if typed custom brand does not exist
+      const newBrandId = crypto.randomUUID()
+      await upsertBrand({
+        id: newBrandId,
+        name: mobile.brand.trim(),
+        status: 'active'
+      } as any)
+      finalBrandId = newBrandId
+    }
+
     await upsertMobile({
-      id: mobile.id || mobile.model.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      brand: mobile.brand,
+      id: mobile.id || crypto.randomUUID(),
+      brandId: finalBrandId,
       model: mobile.model,
       image: mobile.image,
-      year: mobile.releaseYear,
+      status: mobile.status,
       updatedAt: new Date().toISOString(),
-    })
+    } as any)
     setIsDialogOpen(false)
+    await loadMobiles()
+  }
+
+  const handleToggleStatus = async (mobile: AdminMobile) => {
+    const newStatus = mobile.status === 'active' ? 'inactive' : 'active'
+    await upsertMobile({
+      id: mobile.id,
+      brandId: mobile.brandId,
+      model: mobile.model,
+      image: mobile.image,
+      status: newStatus,
+      updatedAt: new Date().toISOString(),
+    } as any)
     await loadMobiles()
   }
 
@@ -153,9 +183,6 @@ export default function MobilesPage() {
                 <TableRow>
                   <TableHead>Model</TableHead>
                   <TableHead>Brand</TableHead>
-                  <TableHead>Year</TableHead>
-                  <TableHead>Variants</TableHead>
-                  <TableHead>Accessories</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Updated</TableHead>
                   {!isViewer && <TableHead className="text-right">Actions</TableHead>}
@@ -176,15 +203,6 @@ export default function MobilesPage() {
                       <span className="text-sm">{mobile.brand}</span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{mobile.releaseYear || '—'}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{mobile.variants}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{mobile.accessories}</Badge>
-                    </TableCell>
-                    <TableCell>
                       <Badge variant="outline" className={getStatusColor(mobile.status)}>
                         {mobile.status}
                       </Badge>
@@ -203,6 +221,10 @@ export default function MobilesPage() {
                               <Pencil className="w-4 h-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleStatus(mobile)}>
+                              <Power className="w-4 h-4 mr-2" />
+                              {mobile.status === 'active' ? 'Mark Inactive' : 'Mark Active'}
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDeleteMobile(mobile.id)}
                               className="text-destructive"
@@ -218,7 +240,7 @@ export default function MobilesPage() {
                 ))}
                 {!isLoading && filteredMobiles.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                       {searchTerm ? 'No results matching your search.' : 'No mobiles yet. Click "Add Mobile" to create one.'}
                     </TableCell>
                   </TableRow>

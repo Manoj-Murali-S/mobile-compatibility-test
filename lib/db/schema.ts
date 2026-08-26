@@ -11,8 +11,6 @@ export const catalogMobiles = pgTable('catalog_mobiles', {
   shopId: text('shop_id').notNull(),
   brand: text('brand').notNull(),
   model: text('model').notNull(),
-  year: integer('year'),
-  variants: jsonb('variants').notNull().default([]),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

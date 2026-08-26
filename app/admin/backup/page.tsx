@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { HardDrive, Plus, MoreHorizontal, Download, RotateCcw, Trash2, AlertCircle } from 'lucide-react'
-import { mockBackupRecords, BackupRecord } from '@/lib/admin-mock-data'
+import { BackupRecord } from '@/lib/admin-types'
 import { getMobiles } from '@/lib/repository/mobiles'
 import { getBrands } from '@/lib/repository/brands'
 import { getAllCompatibility } from '@/lib/repository/compatibility'
@@ -48,7 +48,7 @@ async function exportLiveSnapshot() {
 }
 
 export default function BackupPage() {
-  const [backups, setBackups] = useState<BackupRecord[]>(mockBackupRecords)
+  const [backups, setBackups] = useState<BackupRecord[]>([])
   const [isCreatingBackup, setIsCreatingBackup] = useState(false)
 
   const handleCreateBackup = async () => {

@@ -44,8 +44,14 @@ function isElectronRenderer(): boolean {
  * Repository functions call await on these, so it works transparently.
  */
 
+interface ElectronDbApi {
+  run(sql: string, params: unknown[]): Promise<{ ok: boolean; error?: string }>;
+  get<T = DbRow>(sql: string, params: unknown[]): Promise<{ ok: boolean; data?: T; error?: string }>;
+  all<T = DbRow>(sql: string, params: unknown[]): Promise<{ ok: boolean; data?: T[]; error?: string }>;
+}
+
 class IpcSqliteAdapter implements SqliteAdapter {
-  private api = (window as any).electronAPI.db
+  private api = (window as any).electronAPI.db as ElectronDbApi
 
   run(sql: string, params: unknown[] = []): void {
     // Fire-and-forget in sync context; repositories await this separately
@@ -81,7 +87,55 @@ class IpcSqliteAdapter implements SqliteAdapter {
   }
 }
 
-// ─── In-memory no-op adapter (browser dev) ───────────────────────────────────
+// ─── HTTP-based adapter (browser dev fallback to Next.js API) ─────────────────
+
+class HttpSqliteAdapter implements AsyncSqliteAdapter {
+  run(sql: string, params: unknown[] = []): void {
+    this.runAsync(sql, params).catch(console.error)
+  }
+
+  get<T = DbRow>(sql: string, params: unknown[] = []): T | undefined {
+    throw new Error('Use getAsync instead in HTTP mode')
+  }
+
+  all<T = DbRow>(sql: string, params: unknown[] = []): T[] {
+    throw new Error('Use allAsync instead in HTTP mode')
+  }
+
+  async runAsync(sql: string, params: unknown[] = []): Promise<void> {
+    const res = await fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'run', sql, params }),
+    })
+    const result = await res.json()
+    if (!res.ok || !result.ok) throw new Error(result.error ?? 'HTTP SQLite run failed')
+  }
+
+  async getAsync<T = DbRow>(sql: string, params: unknown[] = []): Promise<T | undefined> {
+    const res = await fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get', sql, params }),
+    })
+    const result = await res.json()
+    if (!res.ok || !result.ok) throw new Error(result.error ?? 'HTTP SQLite get failed')
+    return result.data
+  }
+
+  async allAsync<T = DbRow>(sql: string, params: unknown[] = []): Promise<T[]> {
+    const res = await fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'all', sql, params }),
+    })
+    const result = await res.json()
+    if (!res.ok || !result.ok) throw new Error(result.error ?? 'HTTP SQLite all failed')
+    return result.data ?? []
+  }
+}
+
+// ─── In-memory no-op adapter (browser dev fallback - not used in active dev) ──
 
 class MemoryAdapter implements SqliteAdapter {
   run(_sql: string, _params: unknown[] = []): void {}
@@ -109,6 +163,8 @@ export function getDb(): AsyncSqliteAdapter {
 
   if (isElectronRenderer()) {
     _adapter = new IpcSqliteAdapter()
+  } else if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    _adapter = new HttpSqliteAdapter()
   } else {
     _adapter = new MemoryAdapter() as unknown as AsyncSqliteAdapter
   }
@@ -120,7 +176,7 @@ export function resetDb(): void {
   _adapter = null
 }
 
-/** Convenience: true when running inside Electron */
+/** Convenience: true when running inside Electron or in browser dev with API proxy */
 export function isElectron(): boolean {
-  return isElectronRenderer()
+  return isElectronRenderer() || (typeof window !== 'undefined' && process.env.NODE_ENV === 'development')
 }
