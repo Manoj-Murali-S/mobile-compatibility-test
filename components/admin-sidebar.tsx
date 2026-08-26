@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
@@ -77,15 +78,16 @@ export function AdminSidebar() {
   return (
     <aside className="w-64 bg-card border-r border-border h-screen sticky top-0 overflow-y-auto">
       {/* Header */}
-      <div className="p-6 border-b border-border">
-        <Link href="/admin" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-            <span className="text-accent-foreground font-bold text-sm">MC</span>
-          </div>
-          <div>
-            <h1 className="text-sm font-bold">Mobile Admin</h1>
-            <p className="text-xs text-muted-foreground">Finder Pro</p>
-          </div>
+      <div className="p-4 border-b border-border">
+        <Link href="/admin" className="flex items-center gap-3">
+          <Image
+            src="/logo.png"
+            alt="Cell's and Cell"
+            width={120}
+            height={48}
+            className="object-contain"
+            style={{ maxHeight: 48 }}
+          />
         </Link>
       </div>
 

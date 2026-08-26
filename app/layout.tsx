@@ -6,11 +6,15 @@ import { AuthProvider } from '@/lib/auth'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Mobile Compatibility Finder - Find Accessories for Your Phone',
-  description: 'Discover compatible mobile accessories for Samsung, Apple, Xiaomi, Vivo, Oppo, Realme, Poco, Motorola, and Nokia devices',
+  title: "Cell's and Cell - Mobile Compatibility Finder",
+  description: "Find compatible mobile accessories for your phone — Cell's and Cell official catalog",
   generator: 'v0.app',
   icons: {
     icon: [
+      {
+        url: '/icon.svg',
+        type: 'image/svg+xml',
+      },
       {
         url: '/icon-light-32x32.png',
         media: '(prefers-color-scheme: light)',
@@ -18,10 +22,6 @@ export const metadata: Metadata = {
       {
         url: '/icon-dark-32x32.png',
         media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
       },
     ],
     apple: '/apple-icon.png',
@@ -31,10 +31,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: 'light dark',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#3b82f6' },
-    { media: '(prefers-color-scheme: dark)', color: '#1e40af' },
+    { media: '(prefers-color-scheme: light)', color: '#E91E8C' },
+    { media: '(prefers-color-scheme: dark)', color: '#7B1FA2' },
   ],
 }
+
 
 export default function RootLayout({
   children,

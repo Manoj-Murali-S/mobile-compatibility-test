@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { RefreshCw } from 'lucide-react'
 import SearchHeader from '@/components/search-header'
@@ -96,7 +97,20 @@ export default function Home() {
 
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-3 flex items-center gap-4 justify-between">
+          {/* Logo */}
+          <Link href="/" className="shrink-0">
+            <Image
+              src="/logo.png"
+              alt="Cell's and Cell"
+              width={110}
+              height={44}
+              className="object-contain"
+              style={{ maxHeight: 44 }}
+              priority
+            />
+          </Link>
+
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
