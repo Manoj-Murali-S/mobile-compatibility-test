@@ -16,7 +16,6 @@ function rowToBrand(row: any): CatalogBrand {
     name: row.name,
     logo: row.logo ?? '📱',
     status: row.status ?? 'active',
-    deviceCount: row.device_count ?? row.deviceCount ?? 0,
     updatedAt: row.updated_at ?? row.updatedAt,
   } as CatalogBrand
 }
@@ -24,23 +23,20 @@ function rowToBrand(row: any): CatalogBrand {
 export async function getBrands(): Promise<CatalogBrand[]> {
   if (isElectron()) {
     const rows = await getDb().allAsync<any>(
-      `SELECT b.*, (SELECT COUNT(*) FROM catalog_mobiles m WHERE m.brand_id = b.id) as device_count 
+      `SELECT b.* 
        FROM catalog_brands b 
        ORDER BY b.name ASC`
     )
     return rows.map(rowToBrand)
   }
   const list = await catalogDb.brands.orderBy('name').toArray()
-  for (const b of list) {
-    (b as any).deviceCount = await catalogDb.mobiles.where('brandId').equals(b.id).count()
-  }
   return list
 }
 
 export async function getBrandById(id: string): Promise<CatalogBrand | undefined> {
   if (isElectron()) {
     const row = await getDb().getAsync<any>(
-      `SELECT b.*, (SELECT COUNT(*) FROM catalog_mobiles m WHERE m.brand_id = b.id) as device_count 
+      `SELECT b.* 
        FROM catalog_brands b 
        WHERE b.id = ?`,
       [id]
@@ -48,9 +44,6 @@ export async function getBrandById(id: string): Promise<CatalogBrand | undefined
     return row ? rowToBrand(row) : undefined
   }
   const brand = await catalogDb.brands.get(id)
-  if (brand) {
-    (brand as any).deviceCount = await catalogDb.mobiles.where('brandId').equals(brand.id).count()
-  }
   return brand
 }
 
@@ -67,20 +60,17 @@ export async function upsertBrand(
   } as CatalogBrand
   if (isElectron()) {
     await getDb().runAsync(
-      `INSERT INTO catalog_brands (id, name, logo, device_count, status, created_at, updated_at, created_by, modified_by, created_on, modified_on)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO catalog_brands (id, name, logo, status, created_at, updated_at, created_by, modified_by, created_on, modified_on)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          logo = excluded.logo,
-         device_count = excluded.device_count,
          status = excluded.status,
          updated_at = excluded.updated_at,
-         modified_by = excluded.modified_by,
          modified_on = excluded.modified_on`,
       [
         record.id, record.name, record.logo ?? '📱',
-        (record as any).deviceCount ?? 0,
-        (record as any).status ?? 'active',
+        record.status ?? 'active',
         (record as any).createdAt ?? now(),
         record.updatedAt,
         null,

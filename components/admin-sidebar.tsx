@@ -18,8 +18,9 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 
-const adminMenuItems = [
+const baseMenuItems = [
   {
     title: 'Dashboard',
     href: '/admin',
@@ -40,6 +41,9 @@ const adminMenuItems = [
     href: '/admin/compatibility',
     icon: Link2,
   },
+]
+
+const editorMenuItems = [
   {
     title: 'Import',
     href: '/admin/import',
@@ -55,30 +59,38 @@ const adminMenuItems = [
     href: '/admin/backup',
     icon: HardDrive,
   },
-  {
-    title: 'Settings',
-    href: '/admin/settings',
-    icon: Settings,
-  },
 ]
 
 export function AdminSidebar() {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
 
-  const items = [
-    ...adminMenuItems,
-    ...(user?.role === 'admin' || user?.role === 'superadmin' ? [{
+  let items = [...baseMenuItems]
+  
+  if (user?.role === 'superadmin' || user?.role === 'admin' || user?.role === 'editor') {
+    items = [...items, ...editorMenuItems]
+  }
+  
+  if (user?.role === 'superadmin' || user?.role === 'admin') {
+    items.push({
       title: 'Users',
       href: '/admin/users',
       icon: Users,
-    }] : [])
-  ]
+    })
+  }
+
+  if (user?.role === 'superadmin') {
+    items.push({
+      title: 'Settings',
+      href: '/admin/settings',
+      icon: Settings,
+    })
+  }
 
   return (
-    <aside className="w-64 bg-card border-r border-border h-screen sticky top-0 overflow-y-auto">
+    <aside className="w-64 bg-card border-r border-border h-screen sticky top-0 flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-border">
+      <div className="p-4 border-b border-border shrink-0">
         <Link href="/admin" className="flex items-center gap-3">
           <Image
             src="/logo.png"
@@ -92,7 +104,7 @@ export function AdminSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="p-4 space-y-2">
+      <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
         {items.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
@@ -116,9 +128,12 @@ export function AdminSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border bg-card">
+      <div className="p-4 border-t border-border bg-card shrink-0">
         <div className="space-y-4 text-xs text-muted-foreground flex flex-col">
-          <p>Logged in as {user?.name}</p>
+          <div className="flex items-center justify-between">
+            <p>Logged in as {user?.name}</p>
+            <ThemeSwitcher />
+          </div>
           <div className="flex flex-col gap-2">
             <Link href="/" className="block">
               <Button variant="outline" size="sm" className="w-full justify-start text-xs">

@@ -3,6 +3,7 @@
   "productName": "Mobile Compatibility Finder",
   "version": "1.0.0",
   "description": "Offline-first mobile compatibility catalog — Electron + SQLite + Next.js",
+  "author": "Cell's and Cell",
   "private": true,
   "main": ".electron/main.js",
   "scripts": {

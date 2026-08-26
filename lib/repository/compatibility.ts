@@ -196,8 +196,6 @@ export async function getCompatibleDevicesAsync(query: string, type: AccessoryTy
         brand: (mobile as any).brandName ?? 'Unknown',
         model: mobile.model,
         image: mobile.image ?? '📱',
-        year: null as any,
-        variants: [],
         accessories: 0,
         matchedAccessory: `${term} ${dbCategory}`
       })

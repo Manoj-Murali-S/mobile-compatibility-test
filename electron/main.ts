@@ -140,6 +140,13 @@ function migrateSchema(database: any) {
       database.exec('ALTER TABLE catalog_mobiles DROP COLUMN accessories;')
       console.log('>>> Migrated: Dropped "accessories" column from catalog_mobiles')
     }
+
+    const brandColumns = database.pragma('table_info(catalog_brands)') as any[]
+    const brandColumnNames = brandColumns.map(c => c.name)
+    if (brandColumnNames.includes('device_count')) {
+      database.exec('ALTER TABLE catalog_brands DROP COLUMN device_count;')
+      console.log('>>> Migrated: Dropped "device_count" column from catalog_brands')
+    }
   } catch (err) {
     console.error('>>> Failed to migrate SQLite schema:', err)
   }

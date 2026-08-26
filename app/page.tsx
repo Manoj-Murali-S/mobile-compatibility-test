@@ -14,6 +14,7 @@ import SyncStatusBar from '@/components/sync-status-bar'
 import { getBrands } from '@/lib/repository/brands'
 import { getMobiles } from '@/lib/repository/mobiles'
 import type { CatalogBrand, CatalogMobile } from '@/lib/catalog-db'
+import { ThemeSwitcher } from '@/components/theme-switcher'
 import { Button } from '@/components/ui/button'
 import { seedCatalogIfEmpty } from '@/lib/catalog-repository'
 import { useSync } from '@/lib/sync/use-sync'
@@ -93,7 +94,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       {/* Sync Status Bar (replaces old online/offline banner) */}
-      <SyncStatusBar syncHook={syncHook} />
+      {/* <SyncStatusBar syncHook={syncHook} /> */}
 
       {/* Sticky Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
@@ -144,11 +145,12 @@ export default function Home() {
 
           {/* Links */}
           <div className="ml-4 flex items-center gap-2">
-            <Link href="/search-demo">
+            {/* <Link href="/search-demo">
               <Button variant="outline" size="sm">
                 Advanced Search
               </Button>
-            </Link>
+            </Link> */}
+            <ThemeSwitcher />
             <Link href="/admin">
               <Button variant="outline" size="sm">
                 Admin Dashboard
@@ -187,11 +189,11 @@ export default function Home() {
         </motion.div>
 
         {/* Compatibility results for a searched model, or the regular brand browser */}
-          <MobileGrid
-            brand={selectedBrand}
-            brandId={selectedBrandId}
-            searchQuery={searchQuery}
-          />
+        <MobileGrid
+          brand={selectedBrand}
+          brandId={selectedBrandId}
+          searchQuery={searchQuery}
+        />
       </div>
 
       {/* Command Palette */}

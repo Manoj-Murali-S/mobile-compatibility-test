@@ -211,10 +211,8 @@ export default function MobilesPage() {
                     {!isViewer && (
                       <TableCell className="text-right">
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
+                          <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
+                            <MoreHorizontal className="w-4 h-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleEditMobile(mobile)}>

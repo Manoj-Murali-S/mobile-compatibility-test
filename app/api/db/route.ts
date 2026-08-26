@@ -93,6 +93,37 @@ function migrateSchema(database: any) {
       console.log('>>> API Route Migrated: Dropped "accessories" column from catalog_mobiles')
     }
 
+    const brandColumns = database.pragma('table_info(catalog_brands)') as any[]
+    const brandColumnNames = brandColumns.map(c => c.name)
+    if (brandColumnNames.includes('device_count')) {
+      // Need to recreate table for SQLite since DROP COLUMN is limited in some versions,
+      // but typical modern SQLite supports DROP COLUMN. Let's try DROP COLUMN first.
+      try {
+        database.exec('ALTER TABLE catalog_brands DROP COLUMN device_count;')
+        console.log('>>> API Route Migrated: Dropped "device_count" column from catalog_brands')
+      } catch (e) {
+        // Fallback for older SQLite versions
+        database.exec(`
+          CREATE TABLE catalog_brands_new (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            logo TEXT,
+            status TEXT DEFAULT 'active',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_by TEXT,
+            modified_by TEXT,
+            created_on TEXT,
+            modified_on TEXT
+          );
+          INSERT INTO catalog_brands_new SELECT id,name,logo,status,created_at,updated_at,created_by,modified_by,created_on,modified_on FROM catalog_brands;
+          DROP TABLE catalog_brands;
+          ALTER TABLE catalog_brands_new RENAME TO catalog_brands;
+        `)
+        console.log('>>> API Route Migrated: Dropped "device_count" via table rebuild')
+      }
+    }
+
     // Detect and remove FK constraints on audit columns (created_by / modified_by → users).
     // SQLite cannot drop FKs via ALTER TABLE, so we check the CREATE SQL and recreate without them.
     const brandsTableSql = database.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='catalog_brands'").get()?.sql ?? ''
@@ -104,18 +135,17 @@ function migrateSchema(database: any) {
         BEGIN;
         CREATE TABLE catalog_brands_new (
           id          TEXT PRIMARY KEY,
-          name        TEXT NOT NULL,
-          logo        TEXT DEFAULT '📱',
-          device_count INTEGER DEFAULT 0,
-          status      TEXT DEFAULT 'active',
-          created_at  TEXT NOT NULL,
-          updated_at  TEXT NOT NULL,
-          created_by  TEXT,
+          name TEXT NOT NULL,
+          logo TEXT,
+          status TEXT DEFAULT 'active',
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          created_by TEXT,
           modified_by TEXT,
-          created_on  TEXT,
+          created_on TEXT,
           modified_on TEXT
         );
-        INSERT INTO catalog_brands_new SELECT id,name,logo,device_count,status,created_at,updated_at,created_by,modified_by,created_on,modified_on FROM catalog_brands;
+        INSERT INTO catalog_brands_new SELECT id,name,logo,status,created_at,updated_at,created_by,modified_by,created_on,modified_on FROM catalog_brands;
         DROP TABLE catalog_brands;
         ALTER TABLE catalog_brands_new RENAME TO catalog_brands;
         COMMIT;

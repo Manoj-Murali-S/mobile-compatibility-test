@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
 
-export type ImportRow = { brand: string; model: string; year?: number; variants?: string }
+export type ImportRow = { brand: string; model: string }
 
 export function parseMobileWorkbook(file: File): Promise<{ rows: ImportRow[]; errors: string[] }> {
   return file.arrayBuffer().then((buffer) => {
@@ -11,9 +11,8 @@ export function parseMobileWorkbook(file: File): Promise<{ rows: ImportRow[]; er
     const rows = raw.map((item, index) => {
       const brand = String(item.brand ?? item.Brand ?? '').trim()
       const model = String(item.model ?? item.Model ?? '').trim()
-      const yearValue = Number(item.year ?? item.Year ?? '')
       if (!brand || !model) errors.push(`Row ${index + 2}: brand and model are required`)
-      return { brand, model, year: Number.isFinite(yearValue) && yearValue > 0 ? yearValue : undefined, variants: String(item.variants ?? item.Variants ?? '') }
+      return { brand, model }
     }).filter((row) => row.brand && row.model)
     return { rows, errors }
   })

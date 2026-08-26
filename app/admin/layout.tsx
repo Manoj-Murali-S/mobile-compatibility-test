@@ -29,7 +29,7 @@ export default function AdminLayout({
   return (
     <div className="flex h-screen bg-background flex-col">
       {/* Sync status bar at the top of admin too */}
-      <SyncStatusBar syncHook={syncHook} />
+      {/* <SyncStatusBar syncHook={syncHook} /> */}
       <div className="flex flex-1 overflow-hidden">
         <AdminSidebar />
         <main className="flex-1 overflow-y-auto">

@@ -31,7 +31,6 @@ function toAdminBrand(b: CatalogBrand): AdminBrand {
     id: b.id,
     name: b.name,
     logo: b.logo ?? '📱',
-    deviceCount: (b as any).deviceCount ?? 0,
     status: (b as any).status ?? 'active',
     createdAt: (b as any).createdAt ?? new Date().toLocaleDateString(),
     updatedAt: new Date(b.updatedAt).toLocaleDateString(),
@@ -81,7 +80,6 @@ export default function BrandsPage() {
       name: brand.name,
       logo: brand.logo,
       status: brand.status,
-      deviceCount: brand.deviceCount,
       updatedAt: new Date().toISOString(),
     } as any)
     setIsDialogOpen(false)
@@ -95,7 +93,6 @@ export default function BrandsPage() {
       name: brand.name,
       logo: brand.logo,
       status: newStatus,
-      deviceCount: brand.deviceCount,
       updatedAt: new Date().toISOString(),
     } as any)
     await loadBrands()
@@ -131,7 +128,6 @@ export default function BrandsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Brand Name</TableHead>
-                  <TableHead>Devices</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Updated</TableHead>
                   {!isViewer && <TableHead className="text-right">Actions</TableHead>}
@@ -151,9 +147,6 @@ export default function BrandsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">{brand.deviceCount}</span>
-                    </TableCell>
-                    <TableCell>
                       <Badge
                         variant={brand.status === 'active' ? 'default' : 'secondary'}
                         className={
@@ -169,10 +162,8 @@ export default function BrandsPage() {
                     {!isViewer && (
                       <TableCell className="text-right">
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
+                          <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
+                            <MoreHorizontal className="w-4 h-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleEditBrand(brand)}>

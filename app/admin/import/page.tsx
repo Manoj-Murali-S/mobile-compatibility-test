@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Upload, CheckCircle, AlertCircle, File, Download } from 'lucide-react'
 import { downloadImportTemplate } from '@/lib/download-utils'
 import { upsertMobile } from '@/lib/repository/mobiles'
+import { getBrands, upsertBrand } from '@/lib/repository/brands'
 
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -39,19 +40,36 @@ export default function ImportPage() {
     let success = 0
     let failed = 0
 
-    for (const row of previewRows) {
-      try {
-        await upsertMobile({
-          brand: row.brand,
-          model: row.model,
-          year: row.year ? Number(row.year) : undefined,
-          variants: row.variants ? String(row.variants).split(',').map((v) => v.trim()) : [],
-          updatedAt: new Date().toISOString(),
-        })
-        success++
-      } catch {
-        failed++
+    try {
+      const existingBrands = await getBrands()
+      const brandMap = new Map(existingBrands.map(b => [b.name.toLowerCase(), b.id]))
+
+      for (const row of previewRows) {
+        try {
+          const brandKey = row.brand.trim().toLowerCase()
+          let brandId = brandMap.get(brandKey)
+
+          if (!brandId) {
+            brandId = typeof crypto !== 'undefined' && crypto.randomUUID 
+              ? crypto.randomUUID() 
+              : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+            await upsertBrand({ id: brandId, name: row.brand.trim() })
+            brandMap.set(brandKey, brandId)
+          }
+
+          await upsertMobile({
+            brandId,
+            model: row.model,
+            status: 'active',
+            updatedAt: new Date().toISOString(),
+          })
+          success++
+        } catch {
+          failed++
+        }
       }
+    } catch (error) {
+      console.error('Failed to process import:', error)
     }
 
     setImportResult({
@@ -123,7 +141,7 @@ export default function ImportPage() {
               <p className="font-medium">Preview: {previewRows.length} valid rows</p>
               {validationErrors.length > 0 && <p className="mt-2 text-sm text-destructive">{validationErrors.slice(0, 3).join(' · ')}</p>}
               <div className="mt-3 max-h-40 overflow-auto text-sm text-muted-foreground">
-                {previewRows.slice(0, 5).map((row, index) => <p key={`${row.model}-${index}`}>{row.brand} — {row.model}{row.year ? ` (${row.year})` : ''}</p>)}
+                {previewRows.slice(0, 5).map((row, index) => <p key={`${row.model}-${index}`}>{row.brand} — {row.model}</p>)}
               </div>
             </div>
           )}
@@ -202,11 +220,8 @@ export default function ImportPage() {
           <div className="bg-blue-500/10 rounded-lg p-4 text-sm">
             <p className="font-medium text-blue-700 mb-2">Required Columns:</p>
             <ul className="text-xs text-muted-foreground space-y-1">
-              <li>• Model Name</li>
-              <li>• Brand</li>
-              <li>• Release Year</li>
-              <li>• Variants</li>
-              <li>• Status (active/inactive)</li>
+              <li>• Brand (e.g., Samsung, Apple)</li>
+              <li>• Model (e.g., Galaxy S24)</li>
             </ul>
           </div>
         </CardContent>

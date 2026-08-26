@@ -27,6 +27,7 @@ import { getCategories, upsertCategory, deleteCategory } from '@/lib/repository/
 import { getMobiles } from '@/lib/repository/mobiles'
 import type { CatalogCompatibility, CatalogCategory, CatalogMobile } from '@/lib/catalog-db'
 import { useMemo } from 'react'
+import { useAuth } from '@/lib/auth'
 
 export default function CompatibilityPage() {
   const [activeTab, setActiveTab] = useState<'rules' | 'categories'>('rules')
@@ -36,6 +37,8 @@ export default function CompatibilityPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedRule, setSelectedRule] = useState<CatalogCompatibility | null>(null)
+  const { user } = useAuth()
+  const isViewer = user?.role === 'viewer'
 
   // Category Form State
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -140,7 +143,7 @@ export default function CompatibilityPage() {
             Map shared accessories and manage accessory categories
           </p>
         </div>
-        {activeTab === 'rules' && (
+        {activeTab === 'rules' && !isViewer && (
           <Button onClick={handleAddRule} className="gap-2">
             <Plus className="w-4 h-4" />
             Add Rule
@@ -218,10 +221,8 @@ export default function CompatibilityPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
+                          <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
+                            <MoreHorizontal className="w-4 h-4" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleEditRule(rule)}>
@@ -256,32 +257,34 @@ export default function CompatibilityPage() {
         /* TAB 2: Categories Management */
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Add Category Card */}
-          <Card className="h-fit">
-            <CardHeader>
-              <CardTitle className="text-base">Add Category</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAddCategory} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="category-name">Category Name</Label>
-                  <Input
-                    id="category-name"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="e.g. Camera Film"
-                    disabled={isSavingCategory}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={isSavingCategory || !newCategoryName.trim()}>
-                  {isSavingCategory ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-                  Create Category
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+          {!isViewer && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Add Category</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleAddCategory} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="category-name">Category Name</Label>
+                    <Input
+                      id="category-name"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="e.g. Camera Film"
+                      disabled={isSavingCategory}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isSavingCategory || !newCategoryName.trim()}>
+                    {isSavingCategory ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                    Create Category
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Categories List Card */}
-          <Card className="md:col-span-2">
+          <Card className={!isViewer ? "md:col-span-2" : "md:col-span-3"}>
             <CardHeader>
               <CardTitle className="text-base font-semibold">Available Categories ({categories.length})</CardTitle>
             </CardHeader>

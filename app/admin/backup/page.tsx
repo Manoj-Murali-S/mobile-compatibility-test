@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { HardDrive, Plus, MoreHorizontal, Download, RotateCcw, Trash2, AlertCircle } from 'lucide-react'
+import { HardDrive, Plus, MoreHorizontal, Download, RotateCcw, Trash2, AlertCircle, Clock } from 'lucide-react'
 import { BackupRecord } from '@/lib/admin-types'
 import { getMobiles } from '@/lib/repository/mobiles'
 import { getBrands } from '@/lib/repository/brands'
@@ -50,15 +50,16 @@ async function exportLiveSnapshot() {
 export default function BackupPage() {
   const [backups, setBackups] = useState<BackupRecord[]>([])
   const [isCreatingBackup, setIsCreatingBackup] = useState(false)
+  const [timeToNextBackup, setTimeToNextBackup] = useState<string>('')
 
-  const handleCreateBackup = async () => {
+  const handleCreateBackup = useCallback(async () => {
     setIsCreatingBackup(true)
     const snapshot = await exportLiveSnapshot()
     const name = `Full Backup ${new Date().toISOString().split('T')[0]}`
     downloadJson(snapshot, `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`)
 
     const newBackup: BackupRecord = {
-      id: String(backups.length + 1),
+      id: String(Date.now()),
       name,
       size: `${(JSON.stringify(snapshot).length / 1024).toFixed(1)} KB`,
       type: 'full',
@@ -66,9 +67,55 @@ export default function BackupPage() {
       status: 'completed',
     }
 
-    setBackups([newBackup, ...backups])
+    setBackups(prev => [newBackup, ...prev])
     setIsCreatingBackup(false)
-  }
+  }, [])
+
+  // Prompt before closing
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Modern browsers ignore custom text, but this sets the standard flag
+      e.returnValue = 'Are you sure you want to leave? It is recommended to take a backup.';
+      return 'Are you sure you want to leave? It is recommended to take a backup.';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  // Timer for auto-backup
+  useEffect(() => {
+    const calculateTime = () => {
+      const now = new Date();
+      const target = new Date();
+      target.setHours(22, 0, 0, 0); // 10:00 PM
+
+      if (now > target) {
+        target.setDate(target.getDate() + 1);
+      }
+
+      const diff = target.getTime() - now.getTime();
+
+      // Auto-trigger if we hit the time (within the 1-second interval)
+      if (diff <= 1000 && diff > 0) {
+        handleCreateBackup();
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    };
+
+    setTimeToNextBackup(calculateTime());
+    const intervalId = setInterval(() => {
+      setTimeToNextBackup(calculateTime());
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [handleCreateBackup]);
 
   const handleDownload = async (backup: BackupRecord) => {
     const snapshot = await exportLiveSnapshot()
@@ -133,8 +180,19 @@ export default function BackupPage() {
       {/* Create Backup */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Create New Backup</CardTitle>
-          <CardDescription>Export a full JSON snapshot of your local SQLite catalog</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Create New Backup</CardTitle>
+              <CardDescription>Export a full JSON snapshot of your local SQLite catalog</CardDescription>
+            </div>
+            <div className="text-right flex flex-col items-end">
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Clock className="w-4 h-4" />
+                <p className="text-sm font-medium">Auto-Backup (10:00 PM)</p>
+              </div>
+              <p className="text-2xl font-bold font-mono text-primary mt-1">{timeToNextBackup}</p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -152,7 +210,7 @@ export default function BackupPage() {
               size="lg"
             >
               <Plus className="w-4 h-4 mr-2" />
-              {isCreatingBackup ? 'Creating Backup…' : 'Create Full Backup (Download JSON)'}
+              {isCreatingBackup ? 'Creating Backup…' : 'Backup (Download JSON)'}
             </Button>
           </div>
         </CardContent>
@@ -200,10 +258,8 @@ export default function BackupPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
+                        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" />}>
+                          <MoreHorizontal className="w-4 h-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleDownload(backup)}>

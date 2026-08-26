@@ -3,7 +3,6 @@ export interface AdminBrand {
   id: string
   name: string
   logo: string
-  deviceCount: number
   status: 'active' | 'inactive'
   createdAt: string
   updatedAt: string

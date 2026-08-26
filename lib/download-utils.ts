@@ -31,6 +31,6 @@ export function downloadCsv(rows: Record<string, unknown>[], filename: string) {
 
 export function downloadImportTemplate() {
   downloadCsv([
-    { model_name: 'Galaxy S24', brand: 'Samsung', release_year: 2024, variants: '8GB+128GB; 8GB+256GB', status: 'active' },
+    { model_name: 'Galaxy S24', brand: 'Samsung', status: 'active' },
   ], 'mobile-catalog-import-template.csv')
 }

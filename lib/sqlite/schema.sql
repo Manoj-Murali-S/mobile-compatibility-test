@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS catalog_brands (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
   logo        TEXT DEFAULT '📱',
-  device_count INTEGER DEFAULT 0,
   status      TEXT DEFAULT 'active',   -- 'active' | 'inactive'
   created_at  TEXT NOT NULL,
   updated_at  TEXT NOT NULL,

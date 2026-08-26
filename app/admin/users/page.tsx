@@ -96,7 +96,6 @@ export default function UsersPage() {
           <thead className="bg-muted text-muted-foreground uppercase text-xs">
             <tr>
               <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Actions</th>
@@ -106,7 +105,6 @@ export default function UsersPage() {
             {users.map(u => (
               <tr key={u.id} className="hover:bg-muted/50">
                 <td className="px-4 py-3 font-medium">{u.name}</td>
-                <td className="px-4 py-3">{u.email}</td>
                 <td className="px-4 py-3 capitalize">{u.role}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${

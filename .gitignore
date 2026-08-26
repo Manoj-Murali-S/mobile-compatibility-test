@@ -15,4 +15,22 @@ node_modules
 .DS_Store
 
 # start.bat version sentinel (local only, not committed)
-.installed-version
+.installed-version
+
+# Build outputs
+out/
+build/
+dist/
+.turbo/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Env (in case main .env has secrets)
+.env
+
+# Desktop / Native
+.electron/
+
+

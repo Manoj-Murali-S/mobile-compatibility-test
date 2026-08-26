@@ -1,6 +1,6 @@
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Variants } from 'framer-motion'
 import MobileCard from './mobile-card'
 import { useState, useEffect, useMemo } from 'react'
 import { getMobiles } from '@/lib/repository/mobiles'
@@ -29,13 +29,13 @@ function toCardMobile(m: CatalogMobile) {
   }
 }
 
-const container = {
+const container: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.1 } },
 }
-const item = {
+const item: Variants = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 15 } },
+  show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 100, damping: 15 } },
 }
 
 export default function MobileGrid({ brand, brandId, searchQuery }: MobileGridProps) {
@@ -186,7 +186,7 @@ export default function MobileGrid({ brand, brandId, searchQuery }: MobileGridPr
                 variants={container}
                 initial="hidden"
                 animate="show"
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-6"
               >
                 {group.mobiles.map((m) => (
                   <motion.div key={m.id} variants={item}>

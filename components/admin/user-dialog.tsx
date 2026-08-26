@@ -135,9 +135,6 @@ export function UserDialog({ open, onOpenChange, editUser, onSaveAdd, onSaveEdit
                 <SelectItem value="viewer">Viewer</SelectItem>
                 <SelectItem value="editor">Editor</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
-                {currentUser?.role === 'superadmin' && (
-                  <SelectItem value="superadmin">Superadmin</SelectItem>
-                )}
               </SelectContent>
             </Select>
           </div>

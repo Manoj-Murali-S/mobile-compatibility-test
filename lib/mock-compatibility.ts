@@ -2,8 +2,6 @@ export interface Mobile {
   id: string
   brand: string
   model: string
-  year?: string
-  variants?: string[]
   image?: string
   accessories?: number
 }
