@@ -4,13 +4,20 @@ import { useMemo, useState } from 'react'
 import { Search, Command, ArrowUpRight } from 'lucide-react'
 import { motion } from 'framer-motion'
 
+export type SuggestionItem = {
+  type: 'brand' | 'device'
+  text: string
+  id?: string
+}
+
 interface SearchHeaderProps {
   value: string
   onChange: (value: string) => void
   onSearch: (query: string) => void
   showCommandPalette: boolean
   onCommandPaletteClick: () => void
-  suggestions?: string[]
+  suggestions?: SuggestionItem[]
+  onSuggestionSelect?: (suggestion: SuggestionItem) => void
   onFocusChange?: (focused: boolean) => void
 }
 
@@ -21,6 +28,7 @@ export default function SearchHeader({
   showCommandPalette,
   onCommandPaletteClick,
   suggestions = [],
+  onSuggestionSelect,
   onFocusChange,
 }: SearchHeaderProps) {
   const [isFocused, setIsFocused] = useState(false)
@@ -28,7 +36,7 @@ export default function SearchHeader({
     const normalized = value.trim().toLowerCase()
     if (!normalized) return []
     return suggestions
-      .filter((suggestion) => suggestion.toLowerCase().includes(normalized))
+      .filter((suggestion) => suggestion.text.toLowerCase().includes(normalized))
       .slice(0, 6)
   }, [suggestions, value])
 
@@ -50,7 +58,7 @@ export default function SearchHeader({
                     : '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                 }}
                 transition={{ duration: 0.2 }}
-                className="relative rounded-lg overflow-hidden"
+                className="relative rounded-lg"
               >
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
                   <Search className="w-5 h-5" />
@@ -59,7 +67,10 @@ export default function SearchHeader({
                   type="text"
                   placeholder="Search for your phone model..."
                   value={value}
-                  onChange={(e) => onChange(e.target.value)}
+                  onChange={(e) => {
+                    onChange(e.target.value)
+                    setIsFocused(true)
+                  }}
                   onFocus={() => {
                     setIsFocused(true)
                     onFocusChange?.(true)
@@ -75,19 +86,34 @@ export default function SearchHeader({
                     <p className="px-4 pb-2 pt-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
                       Matching devices
                     </p>
-                    {filteredSuggestions.map((suggestion) => (
+                    {filteredSuggestions.map((suggestion, idx) => (
                       <button
-                        key={suggestion}
+                        key={`${suggestion.type}-${suggestion.text}-${idx}`}
                         type="button"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => {
-                          onChange(suggestion)
-                          onSearch(suggestion)
+                          onChange(suggestion.text)
+                          if (onSuggestionSelect) {
+                            onSuggestionSelect(suggestion)
+                          } else {
+                            onSearch(suggestion.text)
+                          }
                           setIsFocused(false)
                         }}
                         className="flex w-full items-center justify-between px-4 py-3 text-left text-sm hover:bg-muted"
                       >
-                        <span>{suggestion}</span>
+                        <div className="flex items-center gap-2">
+                          <span>{suggestion.text}</span>
+                          <span 
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-medium tracking-wide uppercase ${
+                              suggestion.type === 'brand' 
+                                ? 'bg-primary/10 text-primary' 
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {suggestion.type}
+                          </span>
+                        </div>
                         <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                       </button>
                     ))}

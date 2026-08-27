@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
@@ -19,10 +20,12 @@ import { Button } from '@/components/ui/button'
 import { seedCatalogIfEmpty } from '@/lib/catalog-repository'
 import { useSync } from '@/lib/sync/use-sync'
 
-export default function Home() {
-  const [selectedBrand, setSelectedBrand] = useState('')
+function HomeContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [selectedBrand, setSelectedBrand] = useState(searchParams.get('brand') || '')
   const [selectedBrandId, setSelectedBrandId] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [showRecentSearches, setShowRecentSearches] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
@@ -46,9 +49,13 @@ export default function Home() {
       if (mounted) {
         setDynamicBrands(brandsData)
         setDynamicMobiles(mobilesData)
-        if (brandsData.length > 0 && !selectedBrand) {
+        if (brandsData.length > 0 && !selectedBrand && !searchParams.get('brand')) {
           setSelectedBrand(brandsData[0].name)
           setSelectedBrandId(brandsData[0].id)
+        } else if (searchParams.get('brand')) {
+          const brandName = searchParams.get('brand')!
+          const found = brandsData.find(b => b.name === brandName)
+          if (found) setSelectedBrandId(found.id)
         }
         setLoading(false)
       }
@@ -56,6 +63,43 @@ export default function Home() {
     loadData()
     return () => { mounted = false }
   }, [])
+
+  const lastPushedQ = useRef(searchParams.get('q') || '')
+
+  // Sync URL changes to state
+  useEffect(() => {
+    const brand = searchParams.get('brand')
+    const q = searchParams.get('q') || ''
+    
+    if (brand && brand !== selectedBrand) {
+      setSelectedBrand(brand)
+      const found = dynamicBrands.find(b => b.name === brand)
+      if (found) setSelectedBrandId(found.id)
+    } else if (!brand && selectedBrand) {
+      // URL was cleared (e.g. clicking logo), reset to default brand
+      if (dynamicBrands.length > 0) {
+        setSelectedBrand(dynamicBrands[0].name)
+        setSelectedBrandId(dynamicBrands[0].id)
+      }
+    }
+    
+    if (q !== lastPushedQ.current) {
+      setSearchQuery(q)
+      lastPushedQ.current = q
+    }
+  }, [searchParams, dynamicBrands])
+
+  // Debounce updating the URL while typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const currentQ = searchParams.get('q') || ''
+      if (searchQuery !== currentQ) {
+        lastPushedQ.current = searchQuery
+        updateUrl(selectedBrand, searchQuery)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchQuery, selectedBrand, searchParams])
 
   // Handle keyboard shortcut for command palette
   useEffect(() => {
@@ -70,8 +114,16 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [showCommandPalette])
 
+  const updateUrl = (brand: string, query: string) => {
+    const params = new URLSearchParams()
+    if (brand) params.set('brand', brand)
+    if (query) params.set('q', query)
+    router.replace(`/?${params.toString()}`, { scroll: false })
+  }
+
   const handleSearch = (query: string) => {
     setSearchQuery(query)
+    updateUrl(selectedBrand, query)
     if (query.trim() && !recentSearches.includes(query)) {
       setRecentSearches([query, ...recentSearches.slice(0, 4)])
     }
@@ -84,6 +136,7 @@ export default function Home() {
     setSelectedBrandId(found?.id ?? '')
     setShowRecentSearches(false)
     setSearchQuery('')
+    updateUrl(brand, '')
   }
 
   const handleRecentSearchClick = (search: string) => {
@@ -127,10 +180,17 @@ export default function Home() {
               onSearch={handleSearch}
               showCommandPalette={true}
               onCommandPaletteClick={() => setShowCommandPalette(true)}
-              suggestions={Array.from(new Set([
-                ...dynamicBrands.map(b => b.name),
-                ...dynamicMobiles.map((mobile) => mobile.model),
-              ]))}
+              suggestions={[
+                ...dynamicBrands.map(b => ({ type: 'brand' as const, text: b.name, id: b.id })),
+                ...dynamicMobiles.map((mobile) => ({ type: 'device' as const, text: mobile.model, id: mobile.id })),
+              ]}
+              onSuggestionSelect={(suggestion) => {
+                if (suggestion.type === 'brand') {
+                  handleBrandSelect(suggestion.text)
+                } else if (suggestion.type === 'device' && suggestion.id) {
+                  router.push(`/details?id=${suggestion.id}`)
+                }
+              }}
               onFocusChange={(focused) => setShowRecentSearches(focused && !searchQuery.trim())}
             />
           </motion.div>
@@ -196,7 +256,6 @@ export default function Home() {
         />
       </div>
 
-      {/* Command Palette */}
       <CommandPalette
         isOpen={showCommandPalette}
         onClose={() => setShowCommandPalette(false)}
@@ -207,5 +266,13 @@ export default function Home() {
         brands={dynamicBrands.map(b => b.name)}
       />
     </main>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <HomeContent />
+    </Suspense>
   )
 }
