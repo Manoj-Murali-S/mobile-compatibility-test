@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -19,56 +18,99 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { User, useAuth } from '@/lib/auth'
+import { Eye, EyeOff } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 interface UserDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   editUser: User | null
-  onSaveAdd: (email: string, pass: string, name: string, role: string) => Promise<void>
-  onSaveEdit: (id: string, data: { role?: string, status?: string }) => Promise<void>
+  onSaveAdd: (email: string, pass: string, role: string) => Promise<void>
+  onSaveEdit: (id: string, data: { role?: string, status?: string, email?: string, password?: string }) => Promise<void>
 }
 
 export function UserDialog({ open, onOpenChange, editUser, onSaveAdd, onSaveEdit }: UserDialogProps) {
   const { user: currentUser } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
   const [role, setRole] = useState('viewer')
   const [status, setStatus] = useState('pending')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [container, setContainer] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
-    if (open) {
+    if (!open) {
+      setEmail('')
+      setPassword('')
+      setRole('viewer')
+      setStatus('pending')
       setError('')
+      setEmailError('')
+      setPasswordError('')
+      setShowPassword(false)
+    } else {
+      setError('')
+      setEmailError('')
+      setPasswordError('')
+      setShowPassword(false)
       if (editUser) {
         setRole(editUser.role)
         setStatus(editUser.status)
+        setEmail(editUser.email)
+        setPassword('')
       } else {
         setEmail('')
         setPassword('')
-        setName('')
         setRole('viewer')
+        setStatus('pending')
       }
     }
   }, [open, editUser])
 
   const handleSave = async () => {
     setError('')
+    setEmailError('')
+    setPasswordError('')
     setLoading(true)
     try {
-      if (editUser) {
-        await onSaveEdit(editUser.id, { role, status })
-      } else {
-        if (!email || !password || !name) {
-          throw new Error('All fields are required')
+      let hasError = false
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!email || !emailRegex.test(email)) {
+        setEmailError('Valid email is required')
+        hasError = true
+      }
+      
+      if (!editUser || password) {
+        const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
+        if (!password || !passwordRegex.test(password)) {
+          setPasswordError('Password must be at least 8 characters long, contain 1 number, 1 symbol, and 1 uppercase letter')
+          hasError = true
         }
-        await onSaveAdd(email, password, name, role)
+      }
+
+      if (hasError) {
+        setLoading(false)
+        return
+      }
+
+      if (editUser) {
+        const updates: any = { role, email }
+        if (password) updates.password = password
+        await onSaveEdit(editUser.id, updates)
+        toast.success('User updated successfully')
+      } else {
+        await onSaveAdd(email, password, role)
+        toast.success('User created successfully')
       }
       onOpenChange(false)
     } catch (e: any) {
       setError(e.message)
+      toast.error(e.message)
     } finally {
       setLoading(false)
     }
@@ -84,40 +126,47 @@ export function UserDialog({ open, onOpenChange, editUser, onSaveAdd, onSaveEdit
         {error && <p className="text-sm text-destructive">{error}</p>}
 
         <div className="space-y-4">
-          {!editUser && (
-            <>
-              <div>
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1"
-                  minLength={8}
-                />
-              </div>
-            </>
-          )}
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                if (emailError) setEmailError('')
+              }}
+              className="mt-1"
+            />
+            {emailError && <p className="text-sm text-destructive mt-1">{emailError}</p>}
+          </div>
+          <div>
+            <Label htmlFor="password">
+              {editUser ? 'New Password (leave blank to keep current)' : 'Password'}
+            </Label>
+            <div className="relative mt-1">
+              <Input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  if (passwordError) setPasswordError('')
+                }}
+                className="pr-10"
+                minLength={8}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {passwordError && <p className="text-sm text-destructive mt-1">{passwordError}</p>}
+          </div>
 
           <div>
             <Label htmlFor="role">Role</Label>
@@ -139,26 +188,6 @@ export function UserDialog({ open, onOpenChange, editUser, onSaveAdd, onSaveEdit
             </Select>
           </div>
 
-          {editUser && (
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={status}
-                onValueChange={(value) => {
-                  if (value) setStatus(value)
-                }}
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent container={container || undefined}>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         </div>
 
         <DialogFooter>

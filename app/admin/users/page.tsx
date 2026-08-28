@@ -22,7 +22,20 @@ export default function UsersPage() {
     try {
       setLoading(true)
       const api = (window as any).electronAPI
-      if (!api) return
+      if (!api) {
+        const response = await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'all',
+            sql: 'SELECT id, email, role, status, created_on, modified_on FROM users ORDER BY created_on DESC'
+          })
+        })
+        const resData = await response.json()
+        if (resData.ok) setUsers(resData.data)
+        else setError(resData.error)
+        return
+      }
       const res = await api.auth.getUsers()
       if (res.ok) setUsers(res.data)
       else setError(res.error)
@@ -35,21 +48,81 @@ export default function UsersPage() {
 
   const updateUser = async (id: string, data: { status?: string, role?: string }) => {
     const api = (window as any).electronAPI
-    if (!api) return
+    if (!api) {
+      const updates = []
+      const params = []
+      if (data.status) { updates.push('status = ?'); params.push(data.status) }
+      if (data.role) { updates.push('role = ?'); params.push(data.role) }
+      if (updates.length > 0) {
+        updates.push('modified_on = ?'); params.push(new Date().toISOString())
+        params.push(id)
+        const response = await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'run',
+            sql: `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+            params
+          })
+        })
+        const resData = await response.json()
+        if (!resData.ok) {
+          let errorMsg = resData.error
+          if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
+            errorMsg = 'Email already exists'
+          }
+          throw new Error(errorMsg)
+        }
+      }
+      fetchUsers()
+      return
+    }
     const res = await api.auth.updateUser(id, data)
     if (res.ok) {
       fetchUsers()
     } else {
-      throw new Error(res.error)
+      let errorMsg = res.error
+      if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
+        errorMsg = 'Email already exists'
+      }
+      throw new Error(errorMsg)
     }
   }
 
-  const handleAddUser = async (email: string, pass: string, name: string, role: string) => {
+  const handleAddUser = async (email: string, pass: string, role: string) => {
     const api = (window as any).electronAPI
-    if (!api) return
-    const res = await api.auth.register(email, pass, name, role)
-    if (!res.ok) throw new Error(res.error)
-    
+    if (!api) {
+      const id = crypto.randomUUID()
+      const now = new Date().toISOString()
+      const response = await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'run',
+          sql: 'INSERT INTO users (id, email, password_hash, name, role, status, created_on, modified_on) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          params: [id, email, 'dev-mock-hash', '', role || 'viewer', 'approved', now, now]
+        })
+      })
+      const data = await response.json()
+      if (!data.ok) {
+        let errorMsg = data.error
+        if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
+          errorMsg = 'Email already exists'
+        }
+        throw new Error(errorMsg)
+      }
+      fetchUsers()
+      return
+    }
+    const res = await api.auth.register(email, pass, role)
+    if (!res.ok) {
+      let errorMsg = res.error
+      if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
+        errorMsg = 'Email already exists'
+      }
+      throw new Error(errorMsg)
+    }
+
     // Auto-approve users created by admin
     await api.auth.updateUser(res.user.id, { status: 'approved' })
     fetchUsers()
@@ -88,36 +161,34 @@ export default function UsersPage() {
           Add User
         </Button>
       </div>
-      
+
       {error && <p className="text-destructive mb-4">{error}</p>}
-      
+
       <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
         <table className="w-full text-sm text-left">
           <thead className="bg-muted text-muted-foreground uppercase text-xs">
             <tr>
-              <th className="px-4 py-3">Name</th>
+              <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Created On</th>
+              <th className="px-4 py-3">Modified On</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {users.map(u => (
               <tr key={u.id} className="hover:bg-muted/50">
-                <td className="px-4 py-3 font-medium">{u.name}</td>
+                <td className="px-4 py-3 font-medium">{u.email}</td>
                 <td className="px-4 py-3 capitalize">{u.role}</td>
-                <td className="px-4 py-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    u.status === 'approved' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                    u.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                  }`}>
-                    {u.status.charAt(0).toUpperCase() + u.status.slice(1)}
-                  </span>
+                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                  {u.created_on ? new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).format(new Date(u.created_on)) : 'N/A'}
+                </td>
+                <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                  {u.modified_on ? new Intl.DateTimeFormat('en-US', { month: 'short', day: '2-digit', year: 'numeric' }).format(new Date(u.modified_on)) : 'N/A'}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2 items-center">
-                    {u.status === 'pending' && (
+                    {/*  {u.status === 'pending' && (
                       <>
                         <Button size="sm" variant="outline" onClick={() => quickAction(u.id, { status: 'approved' })}>Approve</Button>
                         <Button size="sm" variant="destructive" onClick={() => quickAction(u.id, { status: 'rejected' })}>Reject</Button>
@@ -125,7 +196,7 @@ export default function UsersPage() {
                     )}
                     {u.status === 'approved' && u.id !== user.id && (
                        <Button size="sm" variant="destructive" onClick={() => quickAction(u.id, { status: 'rejected' })}>Revoke</Button>
-                    )}
+                    )} */}
                     <Button variant="ghost" size="sm" onClick={() => openEditUser(u)}>
                       <Pencil className="w-4 h-4" />
                     </Button>
@@ -137,10 +208,10 @@ export default function UsersPage() {
         </table>
       </div>
 
-      <UserDialog 
-        open={isDialogOpen} 
-        onOpenChange={setIsDialogOpen} 
-        editUser={editingUser} 
+      <UserDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        editUser={editingUser}
         onSaveAdd={handleAddUser}
         onSaveEdit={updateUser}
       />

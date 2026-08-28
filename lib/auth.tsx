@@ -5,7 +5,6 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 export interface User {
   id: string
   email: string
-  name: string
   role: 'superadmin' | 'admin' | 'editor' | 'viewer'
   status: 'pending' | 'approved' | 'rejected'
   created_on: string
@@ -16,7 +15,7 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   signIn: (email: string, passwordAttempt: string) => Promise<{ error?: string }>
-  signUp: (email: string, passwordAttempt: string, name: string, role: string) => Promise<{ error?: string }>
+  signUp: (email: string, passwordAttempt: string, role: string) => Promise<{ error?: string }>
   signOut: () => void
 }
 
@@ -41,23 +40,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const api = (window as any).electronAPI
       if (!api) {
-        // Fallback for browser/dev mode (offline fallbacks via Dexie)
-        const mockUser: User = {
-          id: 'dev-user-id',
-          email: email || 'admin@example.com',
-          name: 'Developer User',
-          role: 'superadmin',
-          status: 'approved',
-          created_on: new Date().toISOString(),
-          modified_on: new Date().toISOString(),
+        // Fallback for browser/dev mode via Next.js API
+        const response = await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'get',
+            sql: 'SELECT id, email, role, status, created_on, modified_on FROM users WHERE email = ?',
+            params: [email]
+          })
+        })
+        const data = await response.json()
+        if (!data.ok || !data.data) {
+          return { error: 'Invalid email or password' }
         }
-        setUser(mockUser)
-        localStorage.setItem('mcf_user', JSON.stringify(mockUser))
+        setUser(data.data)
+        localStorage.setItem('mcf_user', JSON.stringify(data.data))
         return {}
       }
       
       const res = await api.auth.login(email, passwordAttempt)
-      if (!res.ok) return { error: res.error }
+      if (!res.ok) {
+        let errorMsg = res.error
+        if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
+          errorMsg = 'Email already exists'
+        }
+        return { error: errorMsg }
+      }
       
       setUser(res.user)
       localStorage.setItem('mcf_user', JSON.stringify(res.user))
@@ -67,27 +76,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signUp = async (email: string, passwordAttempt: string, name: string, role: string) => {
+  const signUp = async (email: string, passwordAttempt: string, role: string) => {
     try {
       const api = (window as any).electronAPI
       if (!api) {
-        // Fallback for browser/dev mode (offline fallbacks via Dexie)
-        const mockUser: User = {
-          id: 'dev-user-id',
-          email: email || 'admin@example.com',
-          name: name || 'Developer User',
-          role: (role as any) || 'superadmin',
+        // Fallback for browser/dev mode via Next.js API
+        const id = crypto.randomUUID()
+        const now = new Date().toISOString()
+        const newUser: User = {
+          id,
+          email,
+          role: (role as any) || 'viewer',
           status: 'approved',
-          created_on: new Date().toISOString(),
-          modified_on: new Date().toISOString(),
+          created_on: now,
+          modified_on: now,
         }
-        setUser(mockUser)
-        localStorage.setItem('mcf_user', JSON.stringify(mockUser))
+        
+        const response = await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'run',
+            sql: 'INSERT INTO users (id, email, password_hash, name, role, status, created_on, modified_on) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            params: [id, email, 'dev-mock-hash', '', newUser.role, newUser.status, now, now]
+          })
+        })
+        const data = await response.json()
+        if (!data.ok) {
+          let errorMsg = data.error
+          if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
+            errorMsg = 'Email already exists'
+          }
+          return { error: errorMsg }
+        }
+        
+        if (newUser.role === 'superadmin' || newUser.status === 'approved') {
+          setUser(newUser)
+          localStorage.setItem('mcf_user', JSON.stringify(newUser))
+        }
         return {}
       }
       
-      const res = await api.auth.register(email, passwordAttempt, name, role)
-      if (!res.ok) return { error: res.error }
+      const res = await api.auth.register(email, passwordAttempt, role)
+      if (!res.ok) {
+        let errorMsg = res.error
+        if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
+          errorMsg = 'Email already exists'
+        }
+        return { error: errorMsg }
+      }
       
       if (res.user.role === 'superadmin' || res.user.status === 'approved') {
         setUser(res.user)

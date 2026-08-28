@@ -30,4 +30,3 @@ export const ACCESSORY_TYPES: Array<{
   { id: 'camera-protector', label: 'Camera Protector', shortLabel: 'Camera', icon: '◎' },
 ]
 
-// Removed mock data and sync logic; now handled dynamically by lib/repository/compatibility.ts

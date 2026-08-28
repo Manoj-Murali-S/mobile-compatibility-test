@@ -14,6 +14,7 @@ import {
   Settings,
   ChevronRight,
   Users,
+  Tag,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth'
@@ -35,6 +36,11 @@ const baseMenuItems = [
     title: 'Mobiles',
     href: '/admin/mobiles',
     icon: Smartphone,
+  },
+  {
+    title: 'Categories',
+    href: '/admin/categories',
+    icon: Tag,
   },
   {
     title: 'Compatibility',
@@ -65,12 +71,19 @@ export function AdminSidebar() {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
 
-  let items = [...baseMenuItems]
-  
+  let items: any[] = []
+
   if (user?.role === 'superadmin' || user?.role === 'admin' || user?.role === 'editor') {
-    items = [...items, ...editorMenuItems]
+    // Admin, Editor, Superadmin
+    items = [...baseMenuItems, ...editorMenuItems]
+  } else if (user?.role === 'viewer') {
+    // Viewer
+    items = [
+      ...baseMenuItems.filter(item => item.title !== 'Dashboard'),
+      ...editorMenuItems.filter(item => item.title === 'Export')
+    ]
   }
-  
+
   if (user?.role === 'superadmin' || user?.role === 'admin') {
     items.push({
       title: 'Users',
@@ -131,7 +144,7 @@ export function AdminSidebar() {
       <div className="p-4 border-t border-border bg-card shrink-0">
         <div className="space-y-4 text-xs text-muted-foreground flex flex-col">
           <div className="flex items-center justify-between">
-            <p>Logged in as {user?.name}</p>
+            <p>Logged in as {user?.email}</p>
             <ThemeSwitcher />
           </div>
           <div className="flex flex-col gap-2">

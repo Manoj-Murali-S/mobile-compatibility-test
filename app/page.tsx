@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, LayoutGrid, List } from 'lucide-react'
 import SearchHeader from '@/components/search-header'
 import BrandTabs from '@/components/brand-tabs'
 import MobileGrid from '@/components/mobile-grid'
@@ -29,6 +29,7 @@ function HomeContent() {
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [showRecentSearches, setShowRecentSearches] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
 
   const [dynamicBrands, setDynamicBrands] = useState<CatalogBrand[]>([])
   const [dynamicMobiles, setDynamicMobiles] = useState<CatalogMobile[]>([])
@@ -70,7 +71,7 @@ function HomeContent() {
   useEffect(() => {
     const brand = searchParams.get('brand')
     const q = searchParams.get('q') || ''
-    
+
     if (brand && brand !== selectedBrand) {
       setSelectedBrand(brand)
       const found = dynamicBrands.find(b => b.name === brand)
@@ -82,7 +83,7 @@ function HomeContent() {
         setSelectedBrandId(dynamicBrands[0].id)
       }
     }
-    
+
     if (q !== lastPushedQ.current) {
       setSearchQuery(q)
       lastPushedQ.current = q
@@ -232,20 +233,43 @@ function HomeContent() {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="mb-12"
+          className="mb-4 md:mb-12 flex flex-col md:flex-row md:items-center justify-between gap-4"
         >
-          <h1 className="text-4xl font-bold text-foreground mb-2">
-            {selectedBrand} Compatible Devices
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Find the perfect accessories for your {selectedBrand} mobile device
-          </p>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground mb-2">
+              {selectedBrand} Compatible Devices
+            </h1>
+            <p className="text-muted-foreground text-base">
+              Find the perfect accessories for your {selectedBrand} mobile device
+            </p>
+          </div>
+
+          <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border w-fit ml-auto">
+            <Button
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="px-3"
+              onClick={() => setViewMode('grid')}
+            >
+              <LayoutGrid className="w-4 h-4 mr-2" />
+              Grid
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="px-3"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="w-4 h-4 mr-2" />
+              List
+            </Button>
+          </div>
         </motion.div>
 
         {/* Compatibility results for a searched model, or the regular brand browser */}
@@ -253,6 +277,7 @@ function HomeContent() {
           brand={selectedBrand}
           brandId={selectedBrandId}
           searchQuery={searchQuery}
+          viewMode={viewMode}
         />
       </div>
 

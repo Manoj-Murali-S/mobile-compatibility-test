@@ -1,11 +1,13 @@
 'use client'
 
-import { motion, AnimatePresence, Variants } from 'framer-motion'
-import MobileCard from './mobile-card'
-import { useState, useEffect, useMemo } from 'react'
-import { getMobiles } from '@/lib/repository/mobiles'
-import type { CatalogMobile } from '@/lib/catalog-db'
 import { Skeleton } from '@/components/ui/skeleton'
+import type { CatalogMobile } from '@/lib/catalog-db'
+import { getMobiles } from '@/lib/repository/mobiles'
+import { AnimatePresence, motion, Variants } from 'framer-motion'
+import { ArrowRight } from 'lucide-react'
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
+import MobileCard from './mobile-card'
 
 function MobileCardSkeleton() {
   return (
@@ -27,6 +29,7 @@ interface MobileGridProps {
   brand: string
   brandId: string
   searchQuery: string
+  viewMode?: 'grid' | 'list'
 }
 
 // Adapter: CatalogMobile → shape MobileCard needs
@@ -39,6 +42,50 @@ function toCardMobile(m: CatalogMobile) {
   }
 }
 
+function MobileListRow({ mobile }: { mobile: ReturnType<typeof toCardMobile> }) {
+  return (
+    <Link
+      href={`/details?id=${mobile.id}`}
+      className="block h-full"
+    >
+      <div className="flex items-center p-2 sm:p-3 rounded-lg border border-border bg-card hover:border-accent/50 hover:bg-accent/5 transition-colors shadow-sm h-full cursor-pointer">
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-muted flex items-center justify-center text-xl sm:text-2xl mr-3 shrink-0 overflow-hidden">
+          {mobile.image && mobile.image.startsWith('data:image/') ? (
+            <img
+              src={mobile.image}
+              alt={mobile.model}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            mobile.image || '📱'
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0 mr-2">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
+            {mobile.brand}
+          </p>
+
+          <h3 className="font-bold text-sm text-foreground truncate">
+            {mobile.model}
+          </h3>
+        </div>
+
+        <div className="shrink-0">
+          <div
+            className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+            title="View Details"
+          >
+            <ArrowRight
+
+              className="w-4 h-4" />
+          </div>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
 const container: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.1 } },
@@ -48,7 +95,7 @@ const item: Variants = {
   show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 100, damping: 15 } },
 }
 
-export default function MobileGrid({ brand, brandId, searchQuery }: MobileGridProps) {
+export default function MobileGrid({ brand, brandId, searchQuery, viewMode = 'grid' }: MobileGridProps) {
   const [allMobiles, setAllMobiles] = useState<CatalogMobile[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -67,7 +114,7 @@ export default function MobileGrid({ brand, brandId, searchQuery }: MobileGridPr
   // Mobiles to display (filter by brand and search query)
   const displayedMobiles = useMemo(() => {
     let pool = allMobiles
-    
+
     // Filter by brand
     if (brandId) {
       pool = pool.filter(m => m.brandId === brandId)
@@ -85,6 +132,16 @@ export default function MobileGrid({ brand, brandId, searchQuery }: MobileGridPr
 
   // ── Loading state ────────────────────────────────────────────────
   if (loading) {
+    if (viewMode === 'list') {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+          {Array.from({ length: 15 }).map((_, i) => (
+            <Skeleton key={i} className="w-full h-[72px] sm:h-[76px] rounded-lg" />
+          ))}
+        </div>
+      )
+    }
+
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {Array.from({ length: 8 }).map((_, i) => (
@@ -109,11 +166,19 @@ export default function MobileGrid({ brand, brandId, searchQuery }: MobileGridPr
         variants={container}
         initial="hidden"
         animate="show"
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+        className={
+          viewMode === 'grid'
+            ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
+        }
       >
         {displayedMobiles.map((mobile) => (
           <motion.div key={mobile.id} variants={item}>
-            <MobileCard mobile={toCardMobile(mobile)} />
+            {viewMode === 'grid' ? (
+              <MobileCard mobile={toCardMobile(mobile)} />
+            ) : (
+              <MobileListRow mobile={toCardMobile(mobile)} />
+            )}
           </motion.div>
         ))}
       </motion.div>
