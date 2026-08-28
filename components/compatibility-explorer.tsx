@@ -5,22 +5,26 @@ import { Grid2X2, List, SearchX, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import MobileCard from '@/components/mobile-card'
-import { ACCESSORY_TYPES, type AccessoryType, type CompatibilityDevice } from '@/lib/mock-compatibility'
-import { getCompatibleDevicesAsync, checkHasCompatibilityDataAsync } from '@/lib/repository/compatibility'
+import { getCompatibleDevicesAsync, checkHasCompatibilityDataAsync, type CompatibilityDevice } from '@/lib/repository/compatibility'
+import { getCategories } from '@/lib/repository/categories'
+import type { CatalogCategory } from '@/lib/catalog-db'
 
 interface CompatibilityExplorerProps {
   query: string
 }
 
 export default function CompatibilityExplorer({ query }: CompatibilityExplorerProps) {
-  const [activeType, setActiveType] = useState<AccessoryType>('tempered-glass')
+  const [activeType, setActiveType] = useState<string>('')
   const [view, setView] = useState<'grid' | 'list'>('grid')
 
+  const [categories, setCategories] = useState<CatalogCategory[]>([])
   const [devices, setDevices] = useState<CompatibilityDevice[]>([])
   const [hasData, setHasData] = useState<boolean>(true)
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
-  const activeCategory = ACCESSORY_TYPES.find((category) => category.id === activeType)
+
+
+  const activeCategory = categories.find((category) => category.name === activeType)
 
   useEffect(() => {
     let mounted = true
@@ -28,11 +32,28 @@ export default function CompatibilityExplorer({ query }: CompatibilityExplorerPr
 
     async function fetchData() {
       try {
+        const cats = await getCategories()
+        if (mounted) {
+          setCategories(cats)
+          if (!activeType && cats.length > 0) {
+            setActiveType(cats[0].name)
+          }
+        }
+
+        const currentType = activeType || (cats.length > 0 ? cats[0].name : '')
+        if (!currentType) {
+          if (mounted) {
+             setHasData(false)
+             setIsLoading(false)
+          }
+          return
+        }
+
         const has = await checkHasCompatibilityDataAsync(query)
         if (mounted) setHasData(has)
 
         if (has) {
-          const fetchedDevices = await getCompatibleDevicesAsync(query, activeType)
+          const fetchedDevices = await getCompatibleDevicesAsync(query, currentType)
           if (mounted) setDevices(fetchedDevices)
         }
       } catch (err) {
@@ -89,24 +110,24 @@ export default function CompatibilityExplorer({ query }: CompatibilityExplorerPr
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Accessory types">
-        {ACCESSORY_TYPES.map((category) => {
-          // Since it's dynamic now, we don't have synchronous counts easily without complex querying. 
-          // We'll omit the precise count for inactive tabs, or just use a generic label.
-          const isActive = activeType === category.id
+        {categories.map((category) => {
+          const isActive = activeType === category.name
           return (
             <button
               key={category.id}
               role="tab"
               aria-selected={isActive}
-              onClick={() => setActiveType(category.id)}
-              className={`flex shrink-0 items-center gap-2 rounded-xl border px-4 py-3 text-left transition-colors ${isActive ? 'border-accent bg-accent text-accent-foreground shadow-sm' : 'border-border bg-card hover:border-accent/50'
-                }`}
+              onClick={() => setActiveType(category.name)}
+              className={`
+                group flex shrink-0 items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-all duration-300
+                ${
+                  isActive
+                    ? 'border-accent bg-accent text-accent-foreground shadow-md shadow-accent/20'
+                    : 'border-border bg-card text-muted-foreground hover:border-accent/30 hover:bg-accent/5'
+                }
+              `}
             >
-              <span className="text-lg" aria-hidden="true">{category.icon}</span>
-              <span>
-                <span className="block text-sm font-semibold">{category.shortLabel}</span>
-                {isActive && <span className="block text-xs text-accent-foreground/75">{devices.length} devices</span>}
-              </span>
+              <span>{category.name}</span>
             </button>
           )
         })}
@@ -114,7 +135,7 @@ export default function CompatibilityExplorer({ query }: CompatibilityExplorerPr
 
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold">{activeCategory?.label} fits</h3>
+          <h3 className="text-lg font-semibold">{activeCategory?.name} fits</h3>
           <p className="text-sm text-muted-foreground">{devices.length} compatible devices for this stock item</p>
         </div>
         <Badge variant="secondary">{query.toUpperCase()} compatible</Badge>
@@ -122,7 +143,7 @@ export default function CompatibilityExplorer({ query }: CompatibilityExplorerPr
 
       {devices.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center text-muted-foreground">
-          No compatible devices are mapped for {activeCategory?.label.toLowerCase()} yet.
+          No compatible devices are mapped for {activeCategory?.name.toLowerCase()} yet.
         </div>
       ) : view === 'grid' ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

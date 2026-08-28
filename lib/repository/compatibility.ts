@@ -8,7 +8,16 @@ import { enqueueSyncItem } from './sync-queue'
 import { getDb, isElectron } from '../sqlite/db'
 import { getCurrentUserId } from '../auth'
 import { getMobiles } from './mobiles'
-import type { AccessoryType, CompatibilityDevice } from '../mock-compatibility'
+
+
+export interface CompatibilityDevice {
+  id: string
+  brand: string
+  model: string
+  image: string
+  accessories?: number
+  matchedAccessory: string
+}
 
 const now = () => new Date().toISOString()
 
@@ -133,18 +142,11 @@ export async function checkHasCompatibilityDataAsync(query: string): Promise<boo
   )
 }
 
-export async function getCompatibleDevicesAsync(query: string, type: AccessoryType): Promise<CompatibilityDevice[]> {
+export async function getCompatibleDevicesAsync(query: string, categoryName: string): Promise<CompatibilityDevice[]> {
   const term = query.trim().toLowerCase()
-  if (!term) return []
+  if (!term || !categoryName) return []
 
-  const categoryMap: Record<AccessoryType, string> = {
-    'tempered-glass': 'Tempered Glass',
-    'back-case': 'Back Case',
-    'silicone-cover': 'Silicone Cover',
-    'flip-cover': 'Flip Cover',
-    'camera-protector': 'Camera Protector'
-  }
-  const dbCategory = categoryMap[type]
+  const dbCategory = categoryName
 
   // Find mobiles that match the query
   const allMobiles = await getMobiles()

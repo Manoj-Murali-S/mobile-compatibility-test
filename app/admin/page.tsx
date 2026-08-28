@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Package, Smartphone, Link2, TrendingUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { getBrandCount } from '@/lib/repository/brands'
-import { getMobileCount } from '@/lib/repository/mobiles'
+import { getMobileCount, getMobiles } from '@/lib/repository/mobiles'
 import { getAccessoryCount } from '@/lib/repository/accessories'
 import { getSetting } from '@/lib/repository/settings'
 import { getPendingCount } from '@/lib/repository/sync-queue'
@@ -29,15 +29,17 @@ export default function AdminDashboard() {
     lastSync: 'Never',
     lastBackup: 'Never',
   })
+  const [activities, setActivities] = useState<any[]>([])
 
   useEffect(() => {
     async function loadStats() {
-      const [brands, mobiles, accessories, pending, lastSync] = await Promise.all([
+      const [brands, mobiles, accessories, pending, lastSync, allMobiles] = await Promise.all([
         getBrandCount(),
         getMobileCount(),
         getAccessoryCount(),
         getPendingCount(),
         getSetting<string>('last_sync_at'),
+        getMobiles(),
       ])
       setStats({
         totalBrands: brands,
@@ -47,6 +49,20 @@ export default function AdminDashboard() {
         lastSync: lastSync ? new Date(lastSync).toLocaleString() : 'Never',
         lastBackup: 'See Backup page',
       })
+
+      const recentMobiles = allMobiles
+        .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())
+        .slice(0, 5)
+
+      setActivities(
+        recentMobiles.map((m, i) => ({
+          id: m.id || String(i),
+          status: 'success',
+          action: 'Device updated',
+          timestamp: m.updatedAt ? new Date(m.updatedAt).toLocaleDateString() : 'Recently',
+          details: `${(m as any).brandName || 'A brand'} ${m.model} has been added or modified.`,
+        }))
+      )
     }
     void loadStats()
   }, [])
@@ -150,28 +166,34 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {[].slice(0, 5).map((log: any) => (
-                <div key={log.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
-                  <div className="mt-1">
-                    {log.status === 'success' && (
-                      <div className="w-2 h-2 bg-green-500 rounded-full" />
-                    )}
-                    {log.status === 'error' && (
-                      <div className="w-2 h-2 bg-red-500 rounded-full" />
-                    )}
-                    {log.status === 'warning' && (
-                      <div className="w-2 h-2 bg-yellow-500 rounded-full" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{log.action}</p>
-                      <span className="text-xs text-muted-foreground">{log.timestamp}</span>
+              {activities.length > 0 ? (
+                activities.map((log: any) => (
+                  <div key={log.id} className="flex items-start gap-3 pb-3 border-b last:border-0">
+                    <div className="mt-1">
+                      {log.status === 'success' && (
+                        <div className="w-2 h-2 bg-green-500 rounded-full" />
+                      )}
+                      {log.status === 'error' && (
+                        <div className="w-2 h-2 bg-red-500 rounded-full" />
+                      )}
+                      {log.status === 'warning' && (
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full" />
+                      )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{log.details}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{log.action}</p>
+                        <span className="text-xs text-muted-foreground">{log.timestamp}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{log.details}</p>
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  No recent activity found.
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>

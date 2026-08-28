@@ -221,7 +221,7 @@ export function CompatibilityDialog({
               <Select 
                 value={selectedBrandId} 
                 onValueChange={(val) => {
-                  setSelectedBrandId(val)
+                  setSelectedBrandId(val || '')
                   setSourceMobileId('') // Reset phone when brand changes
                 }}
               >
@@ -250,7 +250,7 @@ export function CompatibilityDialog({
               <Label htmlFor="source-model">Source Phone</Label>
               <Select 
                 value={sourceMobileId} 
-                onValueChange={setSourceMobileId}
+                onValueChange={(val) => setSourceMobileId(val || '')}
                 disabled={!selectedBrandId}
               >
                 <SelectTrigger id="source-model" className="w-full">
@@ -276,7 +276,7 @@ export function CompatibilityDialog({
             {/* Accessory Category */}
             <div className="space-y-2">
               <Label htmlFor="category">Accessory Category</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select value={category} onValueChange={(val) => setCategory(val || '')}>
                 <SelectTrigger id="category" className="w-full">
                   <SelectValue placeholder="Select category...">
                     {category ? categories.find(c => c.name === category)?.name || category : null}
