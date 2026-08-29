@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { PwaRegister } from '@/components/pwa-register'
 import { AuthProvider } from '@/lib/auth'
 import { Toaster } from '@/components/ui/sonner'
+import { TrialAlert } from '@/components/trial-alert'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -51,6 +52,7 @@ export default function RootLayout({
             {children}
             <PwaRegister />
             <Toaster position="top-right" />
+            <TrialAlert />
           </AuthProvider>
         </ThemeProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}

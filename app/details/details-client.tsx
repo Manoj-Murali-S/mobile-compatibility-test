@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Share2, Heart, Loader2 } from 'lucide-react';
+import { ArrowLeft, Share2, Heart, Loader2, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import MobileCard from '@/components/mobile-card';
+import { MobileListRow, toCardMobile } from '@/components/mobile-grid';
 import { getMobileById, getMobiles } from '@/lib/repository/mobiles';
 import { getAllCompatibility } from '@/lib/repository/compatibility';
 import { getAccessories } from '@/lib/repository/accessories';
@@ -45,6 +46,7 @@ export default function DetailsClient() {
   const [isCopied, setIsCopied] = useState(false);
   const [activeTabId, setActiveTabId] = useState<string>('');
   const [accessoryStats, setAccessoryStats] = useState<any>({ totalCount: 0, categories: 0, accessories: [] });
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   useEffect(() => {
     let mounted = true;
@@ -269,11 +271,34 @@ export default function DetailsClient() {
           transition={{ delay: 0.3 }}
         >
           <div className="mb-6 flex flex-col gap-4">
-            <div>
-              <h2 className="text-3xl font-bold mb-2">Compatible Accessories</h2>
-              <p className="text-lg text-muted-foreground">
-                Browse accessories compatible with {mobile.model}
-              </p>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-bold mb-2">Compatible Accessories</h2>
+                <p className="text-lg text-muted-foreground">
+                  Browse accessories compatible with {mobile.model}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border w-fit">
+                <Button
+                  variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="px-3"
+                  onClick={() => setViewMode('grid')}
+                >
+                  <LayoutGrid className="w-4 h-4 mr-2" />
+                  Grid
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="px-3"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="w-4 h-4 mr-2" />
+                  List
+                </Button>
+              </div>
             </div>
             
             {accessoryStats.accessories.length > 0 && (
@@ -355,7 +380,11 @@ export default function DetailsClient() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                    className={
+                      viewMode === 'grid'
+                        ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                        : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4"
+                    }
                   >
                     {compatibleMobiles.map((compMobile, i) => (
                       <motion.div
@@ -365,12 +394,11 @@ export default function DetailsClient() {
                         transition={{ delay: i * 0.05, duration: 0.3 }}
                         className="h-full"
                       >
-                        <MobileCard mobile={{
-                          id: compMobile.id,
-                          brand: (compMobile as any).brandName ?? compMobile.brandId,
-                          model: compMobile.model,
-                          image: compMobile.image ?? ''
-                        }} hideViewDetails={true} />
+                        {viewMode === 'grid' ? (
+                          <MobileCard mobile={toCardMobile(compMobile)} hideViewDetails={true} />
+                        ) : (
+                          <MobileListRow mobile={toCardMobile(compMobile)} hideViewDetails={true} />
+                        )}
                       </motion.div>
                     ))}
                   </motion.div>

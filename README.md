@@ -213,3 +213,11 @@ npm run start
 **Login not working**
 - Default credentials: `admin@example.com` / `password123`
 - The Electron shell must be running for auth to work (auth uses SQLite via IPC).
+
+
+
+ Check if the table exists and push migrations (if needed) If you haven't pushed your latest migrations to Supabase, run this in your terminal to apply your 001_initial_schema.sql:
+
+bash
+npx supabase db push
+(Or run whichever command you normally use to deploy your migrations/schema to Supabase).

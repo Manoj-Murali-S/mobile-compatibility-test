@@ -33,7 +33,7 @@ interface MobileGridProps {
 }
 
 // Adapter: CatalogMobile → shape MobileCard needs
-function toCardMobile(m: CatalogMobile) {
+export function toCardMobile(m: CatalogMobile) {
   return {
     id: m.id,
     brand: (m as any).brandName ?? (m as any).brand ?? m.brandId,
@@ -42,7 +42,7 @@ function toCardMobile(m: CatalogMobile) {
   }
 }
 
-function MobileListRow({ mobile }: { mobile: ReturnType<typeof toCardMobile> }) {
+export function MobileListRow({ mobile, hideViewDetails = false }: { mobile: ReturnType<typeof toCardMobile>, hideViewDetails?: boolean }) {
   return (
     <Link
       href={`/details?id=${mobile.id}`}
@@ -71,16 +71,17 @@ function MobileListRow({ mobile }: { mobile: ReturnType<typeof toCardMobile> }) 
           </h3>
         </div>
 
-        <div className="shrink-0">
-          <div
-            className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
-            title="View Details"
-          >
-            <ArrowRight
-
-              className="w-4 h-4" />
+        {!hideViewDetails && (
+          <div className="shrink-0">
+            <div
+              className="flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
+              title="View Details"
+            >
+              <ArrowRight
+                className="w-4 h-4" />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </Link>
   )

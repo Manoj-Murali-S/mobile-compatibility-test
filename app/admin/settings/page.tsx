@@ -1,25 +1,45 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 
-import { AlertCircle as AlertIcon } from 'lucide-react'
 import OfflineSyncSettings from '@/components/offline-sync-settings'
 import { ThemeSwitcher } from '@/components/theme-switcher'
-import { resetSystemDatabase } from '@/lib/repository/settings'
+import { getSetting, resetSystemDatabase, setSetting } from '@/lib/repository/settings'
+import { AlertCircle as AlertIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 export default function SettingsPage() {
+  const [trialEndDate, setTrialEndDate] = useState<string>('')
+  const [trialAlertDays, setTrialAlertDays] = useState<string>('5')
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    async function loadSettings() {
+      const endDate = await getSetting<string>('trialEndDate')
+      const alertDays = await getSetting<string>('trialAlertDays')
+      if (endDate) setTrialEndDate(endDate)
+      if (alertDays) setTrialAlertDays(alertDays)
+    }
+    loadSettings()
+  }, [])
+
+  const handleSaveGeneral = async () => {
+    setIsSaving(true)
+    try {
+      await setSetting('trialEndDate', trialEndDate)
+      await setSetting('trialAlertDays', trialAlertDays)
+      alert("Settings saved successfully!")
+    } catch (err) {
+      console.error(err)
+      alert("Failed to save settings.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -32,37 +52,39 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">General Settings</CardTitle>
+          <CardDescription>Configure application-wide trial limits and alerts.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div>
-            <Label htmlFor="appname">Application Name</Label>
-            <Input
-              id="appname"
-              defaultValue="Mobile Compatibility Finder"
-              className="mt-2"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="timezone">Timezone</Label>
-            <Input
-              id="timezone"
-              defaultValue="UTC (Coordinated Universal Time)"
-              className="mt-2"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="language">Default Language</Label>
-            <Input
-              id="language"
-              defaultValue="English"
-              className="mt-2"
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="trialEndDate">Trial End Date</Label>
+              <Input
+                id="trialEndDate"
+                type="date"
+                value={trialEndDate}
+                onChange={(e) => setTrialEndDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="trialAlertDays">Alert Threshold (Days)</Label>
+              <Input
+                id="trialAlertDays"
+                type="number"
+                min="0"
+                value={trialAlertDays}
+                onChange={(e) => setTrialAlertDays(e.target.value)}
+                placeholder="e.g., 5"
+              />
+              <p className="text-xs text-muted-foreground">
+                Days before trial end to start showing alerts.
+              </p>
+            </div>
           </div>
 
           <div className="border-t pt-6">
-            <Button>Save Changes</Button>
+            <Button disabled={isSaving} onClick={handleSaveGeneral}>
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -91,7 +113,7 @@ export default function SettingsPage() {
                 This will delete all brands, mobiles, categories, and compatibility rules. This action cannot be undone.
               </p>
             </div>
-            <Button 
+            <Button
               variant="destructive"
               onClick={async () => {
                 if (confirm("WARNING: This will permanently wipe all local database records (SQLite and IndexedDB) and re-seed default categories. Are you absolutely sure?")) {
