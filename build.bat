@@ -107,7 +107,7 @@ echo  This may take several minutes on first run.
 echo ═══════════════════════════════════════════════════════
 echo.
 
-call npx electron-forge make
+call npx electron-forge make --out release
 if errorlevel 1 (
     echo.
     echo  ╔═══════════════════════════════════════════════════╗
@@ -121,15 +121,15 @@ echo  ╔═══════════════════════�
 echo  ║  BUILD SUCCESSFUL!                                           ║
 echo  ║                                                              ║
 echo  ║  Installer:                                                  ║
-echo  ║    out\make\squirrel.windows\x64\                            ║
+echo  ║    release\make\squirrel.windows\x64\                        ║
 echo  ║    └─ Mobile Compatibility Finder Setup.exe                  ║
 echo  ║                                                              ║
 echo  ║  Portable ZIP:                                               ║
-echo  ║    out\make\zip\win32\x64\*.zip                              ║
+echo  ║    release\make\zip\win32\x64\*.zip                          ║
 echo  ╚═══════════════════════════════════════════════════════════════╝
 echo.
 
 :: Open the output folder in Explorer
-start "" "out\make"
+start "" "release\make"
 
 pause

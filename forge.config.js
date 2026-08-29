@@ -21,6 +21,7 @@ if (!hasIcon) {
 }
 
 module.exports = {
+  outDir: 'release',
   packagerConfig: {
     name:           'Mobile Compatibility Finder',
     executableName: 'mobile-compatibility-finder',
