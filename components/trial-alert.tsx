@@ -13,12 +13,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { AlertCircle } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { useAuth } from '@/lib/auth'
 
 export function TrialAlert() {
   const [isOpen, setIsOpen] = useState(false)
   const [daysLeft, setDaysLeft] = useState<number | null>(null)
   const [isExpired, setIsExpired] = useState(false)
   const pathname = usePathname()
+  const { user } = useAuth()
 
   // Don't show the alert on the admin settings page to avoid blocking the admin from changing it
   const isAdminSettings = pathname === '/admin/settings'
@@ -58,12 +60,12 @@ export function TrialAlert() {
       }
     }
 
-    if (!isAdminSettings) {
+    if (!isAdminSettings && user?.role !== 'superadmin') {
       checkTrial()
     }
-  }, [isAdminSettings, pathname])
+  }, [isAdminSettings, pathname, user?.role])
 
-  if (!isOpen || daysLeft === null) return null
+  if (!isOpen || daysLeft === null || user?.role === 'superadmin') return null
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {

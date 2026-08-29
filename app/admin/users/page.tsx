@@ -146,6 +146,8 @@ export default function UsersPage() {
     }
   }
 
+  const filteredUser = users.filter(u => u.role !== 'superadmin')
+
   if (user?.role !== 'superadmin' && user?.role !== 'admin') {
     return <div className="p-8"><p>You do not have permission to view this page.</p></div>
   }
@@ -176,7 +178,7 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {users.map(u => (
+            {users?.filter(u => u.role !== 'superadmin').map(u => (
               <tr key={u.id} className="hover:bg-muted/50">
                 <td className="px-4 py-3 font-medium">{u.email}</td>
                 <td className="px-4 py-3 capitalize">{u.role}</td>
