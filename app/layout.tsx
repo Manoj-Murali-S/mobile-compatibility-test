@@ -5,6 +5,7 @@ import { PwaRegister } from '@/components/pwa-register'
 import { AuthProvider } from '@/lib/auth'
 import { Toaster } from '@/components/ui/sonner'
 import { TrialAlert } from '@/components/trial-alert'
+import { AutoBackupProvider } from '@/components/auto-backup-provider'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -49,6 +50,7 @@ export default function RootLayout({
       <body className="antialiased bg-background">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
+            <AutoBackupProvider />
             {children}
             <PwaRegister />
             <Toaster position="top-right" />

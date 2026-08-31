@@ -32,7 +32,8 @@ export default function CategoriesPage() {
     setIsLoading(true)
     try {
       const cData = await getCategories()
-      setCategories(cData)
+      const sorted = cData.sort((a, b) => a.name.localeCompare(b.name))
+      setCategories(sorted)
     } catch (err) {
       console.error('Failed to load categories data:', err)
     } finally {
@@ -74,7 +75,7 @@ export default function CategoriesPage() {
 
   const handleDeleteCategory = async (id: string) => {
     const isDefault = ['tempered-glass', 'back-case', 'silicone-cover', 'flip-cover', 'camera-protector'].includes(id)
-    const confirmMsg = isDefault 
+    const confirmMsg = isDefault
       ? 'This is a system default category. Deleting it may impact searches unless recreated. Are you sure?'
       : 'Are you sure you want to delete this category?'
 
@@ -139,14 +140,14 @@ export default function CategoriesPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Category Name</TableHead>
-                    <TableHead>Slug / Slugified ID</TableHead>
+                    <TableHead>Slug ID</TableHead>
                     {!isViewer && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {categories.map((category) => (
                     <TableRow key={category.id}>
-                      <TableCell className="font-semibold">{category.name}</TableCell>
+                      <TableCell className="font-semibold capitalize">{category.name}</TableCell>
                       <TableCell className="text-xs text-mono text-muted-foreground">{category.id}</TableCell>
                       {!isViewer && (
                         <TableCell className="text-right">

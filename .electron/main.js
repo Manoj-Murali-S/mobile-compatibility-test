@@ -211,12 +211,20 @@ electron_1.ipcMain.handle('sqlite-all', (_event, sql, params) => {
 // IPC: Auth
 electron_1.ipcMain.handle('auth-login', (_event, email, passwordAttempt) => {
     try {
+        if (!passwordAttempt)
+            return { ok: false, error: 'Password is required' };
         const user = getOrOpenDb().prepare('SELECT * FROM users WHERE email = ?').get(email);
         if (!user)
             return { ok: false, error: 'Invalid email or password' };
         if (user.status !== 'approved')
             return { ok: false, error: 'Your account is pending approval or rejected' };
+        if (!user.password_hash || typeof user.password_hash !== 'string' || !user.password_hash.includes(':')) {
+            return { ok: false, error: 'Invalid email or password (malformed hash)' };
+        }
         const [salt, key] = user.password_hash.split(':');
+        if (!salt || !key) {
+            return { ok: false, error: 'Invalid email or password' };
+        }
         const hashedBuffer = node_crypto_1.default.scryptSync(passwordAttempt, salt, 64);
         const keyBuffer = Buffer.from(key, 'hex');
         const match = node_crypto_1.default.timingSafeEqual(hashedBuffer, keyBuffer);

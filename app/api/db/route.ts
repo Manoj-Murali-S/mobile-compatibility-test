@@ -344,7 +344,8 @@ function ensureDefaultAdmin(database: any) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { action, sql, params } = await req.json()
+    const body = await req.json()
+    const { action, sql, params, email, passwordAttempt, role, status, name } = body
     const dbInstance = getDbInstance()
     
     if (action === 'run') {
@@ -356,6 +357,49 @@ export async function POST(req: NextRequest) {
     } else if (action === 'all') {
       const data = dbInstance.prepare(sql).all(...(params || []))
       return NextResponse.json({ ok: true, data })
+    } else if (action === 'register-user') {
+      if (!email || !passwordAttempt) {
+        return NextResponse.json({ ok: false, error: 'Email and password are required' })
+      }
+      const existing = dbInstance.prepare('SELECT id FROM users WHERE email = ?').get(email)
+      if (existing) return NextResponse.json({ ok: false, error: 'Email already exists' })
+      
+      const id = crypto.randomUUID()
+      const salt = crypto.randomBytes(16).toString('hex')
+      const hash = crypto.scryptSync(passwordAttempt, salt, 64).toString('hex')
+      const password_hash = `${salt}:${hash}`
+      const now = new Date().toISOString()
+      
+      dbInstance.prepare(`
+        INSERT INTO users (id, email, password_hash, name, role, status, created_on, modified_on)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(id, email, password_hash, name || '', role || 'viewer', status || 'approved', now, now)
+      
+      const user = { id, email, name: name || '', role: role || 'viewer', status: status || 'approved', created_on: now, modified_on: now }
+      return NextResponse.json({ ok: true, user })
+    } else if (action === 'login-user') {
+      if (!email || !passwordAttempt) {
+        return NextResponse.json({ ok: false, error: 'Email and password are required' })
+      }
+      const user = dbInstance.prepare('SELECT * FROM users WHERE email = ?').get(email)
+      if (!user) return NextResponse.json({ ok: false, error: 'Invalid email or password' })
+      if (user.status !== 'approved') return NextResponse.json({ ok: false, error: 'Your account is pending approval or rejected' })
+      
+      if (!user.password_hash || typeof user.password_hash !== 'string' || !user.password_hash.includes(':')) {
+        return NextResponse.json({ ok: false, error: 'Invalid email or password (malformed hash)' })
+      }
+      
+      const [salt, key] = user.password_hash.split(':')
+      if (!salt || !key) return NextResponse.json({ ok: false, error: 'Invalid email or password' })
+      
+      const hashedBuffer = crypto.scryptSync(passwordAttempt, salt, 64)
+      const keyBuffer = Buffer.from(key, 'hex')
+      const match = crypto.timingSafeEqual(hashedBuffer, keyBuffer)
+      
+      if (!match) return NextResponse.json({ ok: false, error: 'Invalid email or password' })
+      
+      const { password_hash, ...safeUser } = user
+      return NextResponse.json({ ok: true, user: safeUser })
     } else {
       return NextResponse.json({ ok: false, error: 'Invalid db action' }, { status: 400 })
     }

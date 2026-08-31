@@ -4,25 +4,48 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search, X } from 'lucide-react'
 
+import type { CatalogMobile } from '@/lib/catalog-db'
+
 interface CommandPaletteProps {
   isOpen: boolean
   onClose: () => void
   onSelectBrand: (brand: string) => void
+  onSelectMobile: (mobileId: string) => void
   brands: string[]
+  mobiles: CatalogMobile[]
 }
 
 export default function CommandPalette({
   isOpen,
   onClose,
   onSelectBrand,
+  onSelectMobile,
   brands,
+  mobiles,
 }: CommandPaletteProps) {
   const [search, setSearch] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  const filtered = brands.filter((brand) =>
-    brand.toLowerCase().includes(search.toLowerCase())
-  )
+  const searchTerm = search.toLowerCase()
+  
+  const filteredBrands = brands
+    .filter((brand) => brand.toLowerCase().includes(searchTerm))
+    .map(b => ({ type: 'brand' as const, id: b, text: b, subtitle: 'Brand' }))
+
+  const filteredMobiles = mobiles
+    .filter((m) => 
+      m.model.toLowerCase().includes(searchTerm) || 
+      (m as any).brandName?.toLowerCase().includes(searchTerm) ||
+      m.brandId.toLowerCase().includes(searchTerm)
+    )
+    .map(m => ({
+      type: 'mobile' as const,
+      id: m.id,
+      text: m.model,
+      subtitle: (m as any).brandName || m.brandId
+    }))
+
+  const filtered = [...filteredBrands, ...filteredMobiles].slice(0, 50)
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -40,7 +63,9 @@ export default function CommandPalette({
       } else if (e.key === 'Enter') {
         e.preventDefault()
         if (filtered.length > 0) {
-          onSelectBrand(filtered[selectedIndex])
+          const item = filtered[selectedIndex]
+          if (item.type === 'brand') onSelectBrand(item.id)
+          else onSelectMobile(item.id)
           onClose()
         }
       }
@@ -48,7 +73,7 @@ export default function CommandPalette({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, filtered, selectedIndex, onSelectBrand, onClose])
+  }, [isOpen, filtered, selectedIndex, onSelectBrand, onSelectMobile, onClose])
 
   // Reset selection when search changes
   useEffect(() => {
@@ -91,7 +116,7 @@ export default function CommandPalette({
                 <input
                   autoFocus
                   type="text"
-                  placeholder="Select a brand..."
+                  placeholder="Search brands and devices..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
@@ -107,35 +132,41 @@ export default function CommandPalette({
               {/* Results */}
               <div className="max-h-96 overflow-y-auto">
                 {filtered.length > 0 ? (
-                  filtered.map((brand, index) => (
+                  filtered.map((item, index) => (
                     <motion.button
-                      key={brand}
+                      key={`${item.type}-${item.id}`}
                       onClick={() => {
-                        onSelectBrand(brand)
+                        if (item.type === 'brand') onSelectBrand(item.id)
+                        else onSelectMobile(item.id)
                         onClose()
                       }}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
+                      transition={{ delay: index * 0.02 }}
                       className={`w-full px-4 py-3 text-left flex items-center justify-between transition-colors border-b border-border last:border-b-0 ${
                         selectedIndex === index
                           ? 'bg-accent text-accent-foreground'
                           : 'hover:bg-muted text-foreground'
                       }`}
                     >
-                      <span className="font-medium">{brand}</span>
+                      <div className="flex flex-col text-left">
+                        <span className="font-medium">{item.text}</span>
+                        <span className={`text-xs ${selectedIndex === index ? 'text-accent-foreground/80' : 'text-muted-foreground'}`}>
+                          {item.subtitle}
+                        </span>
+                      </div>
                       {selectedIndex === index && (
                         <motion.div
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          className="w-2 h-2 rounded-full bg-accent-foreground"
+                          className="w-2 h-2 rounded-full bg-accent-foreground flex-shrink-0"
                         />
                       )}
                     </motion.button>
                   ))
                 ) : (
                   <div className="px-4 py-8 text-center text-muted-foreground">
-                    <p>No brands found</p>
+                    <p>No results found</p>
                   </div>
                 )}
               </div>

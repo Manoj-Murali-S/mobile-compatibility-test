@@ -45,17 +45,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'get',
-            sql: 'SELECT id, email, role, status, created_on, modified_on FROM users WHERE email = ?',
-            params: [email]
+            action: 'login-user',
+            email,
+            passwordAttempt
           })
         })
         const data = await response.json()
-        if (!data.ok || !data.data) {
-          return { error: 'Invalid email or password' }
+        if (!data.ok || !data.user) {
+          return { error: data.error || 'Invalid email or password' }
         }
-        setUser(data.data)
-        localStorage.setItem('mcf_user', JSON.stringify(data.data))
+        setUser(data.user)
+        localStorage.setItem('mcf_user', JSON.stringify(data.user))
         return {}
       }
       
@@ -81,24 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const api = (window as any).electronAPI
       if (!api) {
         // Fallback for browser/dev mode via Next.js API
-        const id = crypto.randomUUID()
-        const now = new Date().toISOString()
-        const newUser: User = {
-          id,
-          email,
-          role: (role as any) || 'viewer',
-          status: 'approved',
-          created_on: now,
-          modified_on: now,
-        }
-        
         const response = await fetch('/api/db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'run',
-            sql: 'INSERT INTO users (id, email, password_hash, name, role, status, created_on, modified_on) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            params: [id, email, 'dev-mock-hash', '', newUser.role, newUser.status, now, now]
+            action: 'register-user',
+            email,
+            passwordAttempt,
+            role: (role as any) || 'viewer',
+            status: 'approved',
+            name: ''
           })
         })
         const data = await response.json()
@@ -110,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: errorMsg }
         }
         
+        const newUser = data.user
         if (newUser.role === 'superadmin' || newUser.status === 'approved') {
           setUser(newUser)
           localStorage.setItem('mcf_user', JSON.stringify(newUser))

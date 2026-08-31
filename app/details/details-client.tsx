@@ -59,7 +59,7 @@ export default function DetailsClient() {
           getAccessories(),
           getCategories()
         ]);
-        
+
         if (mounted && found) {
           setMobile(found);
           setAllMobiles(allMobiles);
@@ -203,7 +203,7 @@ export default function DetailsClient() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => router.back()}
+              onClick={() => router.push('/')}
               className="p-2 hover:bg-muted rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -233,33 +233,40 @@ export default function DetailsClient() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mb-12"
+          className="mb-6"
         >
-          <div className="bg-gradient-to-br from-accent/10 to-accent/5 rounded-2xl p-8 border border-border">
-            <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
-              <div>
-                <h2 className="text-3xl font-bold mb-2">{(mobile as any).brandName || mobile.brandId} {mobile.model}</h2>
-                <p className="text-muted-foreground text-lg">
-                  Find the perfect accessories for your device
-                </p>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-background/50 backdrop-blur-md rounded-2xl p-6 border border-border shadow-sm">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-2xl font-bold">{(mobile as any).brandName || mobile.brandId} {mobile.model}</h1>
+                <Badge variant="secondary" className="font-normal text-xs bg-accent/10 text-accent">
+                  {accessoryStats.totalCount} Accessories ({accessoryStats.categories} Categories)
+                </Badge>
               </div>
-              <div className="text-right">
-                <div className="text-4xl font-bold text-accent mb-1">
-                  {accessoryStats.totalCount}
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Compatible Accessories
-                </p>
-              </div>
+              <p className="text-muted-foreground text-sm">
+                Compatible accessories available for this device
+              </p>
             </div>
 
-            {/* Device Info Badges */}
-            <div className="flex flex-wrap gap-2">
-              {accessoryStats.categories > 0 && (
-                <Badge variant="secondary" className="bg-accent/20 text-accent">
-                  🎁 {accessoryStats.categories} Categories
-                </Badge>
-              )}
+            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border w-fit">
+              <Button
+                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="px-3 text-xs h-8"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="w-3.5 h-3.5 mr-1.5" />
+                Grid
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="px-3 text-xs h-8"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="w-3.5 h-3.5 mr-1.5" />
+                List
+              </Button>
             </div>
           </div>
         </motion.div>
@@ -271,36 +278,6 @@ export default function DetailsClient() {
           transition={{ delay: 0.3 }}
         >
           <div className="mb-6 flex flex-col gap-4">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                <h2 className="text-3xl font-bold mb-2">Compatible Accessories</h2>
-                <p className="text-lg text-muted-foreground">
-                  Browse accessories compatible with {mobile.model}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border w-fit">
-                <Button
-                  variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="px-3"
-                  onClick={() => setViewMode('grid')}
-                >
-                  <LayoutGrid className="w-4 h-4 mr-2" />
-                  Grid
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="px-3"
-                  onClick={() => setViewMode('list')}
-                >
-                  <List className="w-4 h-4 mr-2" />
-                  List
-                </Button>
-              </div>
-            </div>
-            
             {accessoryStats.accessories.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-0 hide-scrollbar mt-4 border-b border-border/50">
                 {accessoryStats.accessories.map((category: any) => (
@@ -326,7 +303,7 @@ export default function DetailsClient() {
                     )}
                   </motion.button>
                 ))}
-                
+
                 <style jsx>{`
                   .hide-scrollbar {
                     -ms-overflow-style: none;
@@ -351,7 +328,7 @@ export default function DetailsClient() {
                 activeCategory.accessories.forEach((acc: any) => {
                   acc.compatibleModels.forEach((m: string) => compatibleModelNames.add(m));
                 });
-                
+
                 // Exclude the current mobile so we only show *other* compatible devices
                 if (mobile) {
                   const currentMobileFullName = `${(mobile as any).brandName || mobile.brandId} ${mobile.model}`;
@@ -373,7 +350,7 @@ export default function DetailsClient() {
                     </div>
                   );
                 }
-                
+
                 return (
                   <motion.div
                     key={activeCategory.id}

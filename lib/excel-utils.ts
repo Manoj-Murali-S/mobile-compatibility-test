@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
 
-export type ImportRow = { brand: string; model: string }
+export type ImportRow = { brand: string; model: string; status?: string }
 
 export function parseMobileWorkbook(file: File): Promise<{ rows: ImportRow[]; errors: string[] }> {
   return file.arrayBuffer().then((buffer) => {
@@ -9,10 +9,12 @@ export function parseMobileWorkbook(file: File): Promise<{ rows: ImportRow[]; er
     const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
     const errors: string[] = []
     const rows = raw.map((item, index) => {
-      const brand = String(item.brand ?? item.Brand ?? '').trim()
-      const model = String(item.model ?? item.Model ?? '').trim()
+      const brand = String(item.brand ?? item.Brand ?? item.brand_name ?? item['Brand Name'] ?? '').trim()
+      const model = String(item.model ?? item.Model ?? item.model_name ?? item['Model Name'] ?? item['Model'] ?? '').trim()
+      const status = String(item.status ?? item.Status ?? '').trim() || undefined
+      
       if (!brand || !model) errors.push(`Row ${index + 2}: brand and model are required`)
-      return { brand, model }
+      return { brand, model, status }
     }).filter((row) => row.brand && row.model)
     return { rows, errors }
   })

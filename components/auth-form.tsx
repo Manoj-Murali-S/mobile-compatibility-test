@@ -118,19 +118,22 @@ export function AuthForm({
           {error}
         </div>
       )}
-
-      <Button
-        type="submit"
-        disabled={pending}
-        className="h-11 w-full"
-      >
-        {pending
-          ? 'Please wait…'
-          : mode === 'sign-up'
-            ? 'Register for Access'
-            : 'Sign in'}
-      </Button>
-
+      <div>
+        <Button
+          type="submit"
+          disabled={pending}
+          className="h-11 w-full"
+        >
+          {pending
+            ? 'Please wait…'
+            : mode === 'sign-up'
+              ? 'Register for Access'
+              : 'Sign in'}
+        </Button>
+        <Button variant={'link'} className="w-full mt-1 cursor-pointer" onClick={() => router.push('/')}>
+          Back to home
+        </Button>
+      </div>
       {mode === 'sign-up' && (
         <p className="text-center text-xs text-muted-foreground">
           Registrations require admin approval.

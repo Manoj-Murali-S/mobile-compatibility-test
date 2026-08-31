@@ -91,7 +91,7 @@ export function CompatibilityDialog({
         setSourceMobileId(rule.sourceMobileId)
         setCategory(rule.category)
         setCompatibleMobileIds(rule.compatibleMobileIds)
-        
+
         // Find brand from source model to pre-populate brand dropdown
         const sourceMob = mobiles.find(m => m.id === rule.sourceMobileId)
         if (sourceMob) {
@@ -109,7 +109,7 @@ export function CompatibilityDialog({
   // Reset logic when Step 1 inputs change after having visited Step 2
   useEffect(() => {
     if (visitedStage2 && lockedStage1Values) {
-      const hasChanged = 
+      const hasChanged =
         selectedBrandId !== lockedStage1Values.brand ||
         sourceMobileId !== lockedStage1Values.source ||
         category !== lockedStage1Values.cat
@@ -197,14 +197,14 @@ export function CompatibilityDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent 
-        ref={setContainer} 
+      <DialogContent
+        ref={setContainer}
         className="sm:max-w-lg max-h-[90vh] overflow-y-auto"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <DialogTitle>
-            {rule ? 'Edit Compatibility Rule' : 'Configure New Compatibility'} 
+            {rule ? 'Edit Compatibility Rule' : 'Configure New Compatibility'}
             <span className="text-muted-foreground ml-2 text-sm font-normal">
               (Step {step} of 2)
             </span>
@@ -218,8 +218,8 @@ export function CompatibilityDialog({
             {/* Brand Selection */}
             <div className="space-y-2">
               <Label htmlFor="brand">Brand</Label>
-              <Select 
-                value={selectedBrandId} 
+              <Select
+                value={selectedBrandId}
                 onValueChange={(val) => {
                   setSelectedBrandId(val || '')
                   setSourceMobileId('') // Reset phone when brand changes
@@ -248,8 +248,8 @@ export function CompatibilityDialog({
             {/* Source Phone Selection */}
             <div className="space-y-2">
               <Label htmlFor="source-model">Source Phone</Label>
-              <Select 
-                value={sourceMobileId} 
+              <Select
+                value={sourceMobileId}
                 onValueChange={(val) => setSourceMobileId(val || '')}
                 disabled={!selectedBrandId}
               >
@@ -284,7 +284,7 @@ export function CompatibilityDialog({
                 </SelectTrigger>
                 <SelectContent container={container || undefined}>
                   {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.name} className="cursor-pointer">
+                    <SelectItem key={c.id} value={c.name} className="cursor-pointer capitalize">
                       {c.name}
                     </SelectItem>
                   ))}
@@ -296,7 +296,7 @@ export function CompatibilityDialog({
                 </SelectContent>
               </Select>
             </div>
-            
+
             <DialogFooter className="mt-6">
               <Button
                 type="button"
@@ -306,8 +306,8 @@ export function CompatibilityDialog({
               >
                 Cancel
               </Button>
-              <Button 
-                onClick={handleNext} 
+              <Button
+                onClick={handleNext}
                 disabled={!selectedBrandId || !sourceMobileId || !category || isLoading}
                 className="gap-2"
               >
@@ -345,8 +345,8 @@ export function CompatibilityDialog({
                     })
                   }
                   {!isChipsExpanded && compatibleMobileIds.length > 8 && (
-                    <Badge 
-                      variant="outline" 
+                    <Badge
+                      variant="outline"
                       className="text-xs cursor-pointer hover:bg-muted"
                       onClick={() => setIsChipsExpanded(true)}
                     >
@@ -354,13 +354,13 @@ export function CompatibilityDialog({
                     </Badge>
                   )}
                   {isChipsExpanded && compatibleMobileIds.length > 8 && (
-                     <Badge 
-                     variant="outline" 
-                     className="text-xs cursor-pointer hover:bg-muted"
-                     onClick={() => setIsChipsExpanded(false)}
-                   >
-                     Show less
-                   </Badge>
+                    <Badge
+                      variant="outline"
+                      className="text-xs cursor-pointer hover:bg-muted"
+                      onClick={() => setIsChipsExpanded(false)}
+                    >
+                      Show less
+                    </Badge>
                   )}
                 </div>
               )}
@@ -390,7 +390,7 @@ export function CompatibilityDialog({
                           <Checkbox
                             id={`target-${m.id}`}
                             checked={isChecked}
-                            onCheckedChange={() => {}} // Row click handles it
+                            onCheckedChange={() => { }} // Row click handles it
                           />
                           <div className="flex justify-between w-full items-center">
                             <span className="font-medium">{m.model}</span>
@@ -407,7 +407,7 @@ export function CompatibilityDialog({
                 </div>
               </div>
             </div>
-            
+
             <DialogFooter className="mt-6 flex justify-between w-full sm:justify-between">
               <Button
                 type="button"

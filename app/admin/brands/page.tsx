@@ -49,7 +49,8 @@ export default function BrandsPage() {
     setIsLoading(true)
     try {
       const data = await getBrands()
-      setBrands(data.map(toAdminBrand))
+      const sorted = data.sort((a, b) => a.name.localeCompare(b.name))
+      setBrands(sorted.map(toAdminBrand))
     } catch (err) {
       console.error('Failed to load brands', err)
     } finally {
@@ -139,23 +140,29 @@ export default function BrandsPage() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         {brand.logo && brand.logo.startsWith('data:image/') ? (
-                          <img src={brand.logo} alt={brand.name} className="w-8 h-8 object-contain bg-white rounded border p-1" />
+                          <img
+                            src={brand.logo}
+                            alt={brand.name}
+                            className="w-8 h-8 object-contain bg-white rounded border p-1"
+                          />
                         ) : (
-                          <span className="text-2xl">{brand.logo}</span>
+                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-sm font-semibold text-foreground">
+                            {brand.name.charAt(0).toUpperCase()}
+                          </div>
                         )}
-                        <span className="font-medium">{brand.name}</span>
+                        <span className="font-medium capitalize">{brand.name}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={brand.status === 'active' ? 'default' : 'secondary'}
+                        variant={brand.status === 'active' ? 'default' : 'destructive'}
                         className={
-                          brand.status === 'active'
-                            ? 'bg-green-500/10 text-green-700 border-green-200'
-                            : ''
+                          `rounded ${brand.status === 'active'
+                            ? 'bg-green-500/10 text-green-700 border-green-200 w-20'
+                            : 'w-20'}`
                         }
                       >
-                        {brand.status}
+                        {brand.status?.toUpperCase()}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{brand.updatedAt}</TableCell>

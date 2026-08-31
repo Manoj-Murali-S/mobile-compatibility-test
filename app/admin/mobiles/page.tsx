@@ -193,18 +193,33 @@ export default function MobilesPage() {
                   <TableRow key={mobile.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        {mobile.image && mobile.image.startsWith('data:image/') && (
-                          <img src={mobile.image} alt={mobile.model} className="w-8 h-8 object-contain bg-white rounded border p-1" />
+                        {mobile.image && mobile.image.startsWith('data:image/') ? (
+                          <img
+                            src={mobile.image}
+                            alt={mobile.model}
+                            className="w-8 h-8 object-contain bg-white rounded border p-1"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-sm font-semibold text-foreground">
+                            {mobile.model.charAt(0).toUpperCase()}
+                          </div>
                         )}
-                        <span className="font-medium">{mobile.model}</span>
+                        <span className="font-medium capitalize">{mobile.model}</span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">{mobile.brand}</span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={getStatusColor(mobile.status)}>
-                        {mobile.status}
+                      <Badge
+                        variant={mobile.status === 'active' ? 'default' : 'destructive'}
+                        className={
+                          `rounded ${mobile.status === 'active'
+                            ? 'bg-green-500/10 text-green-700 border-green-200 w-20'
+                            : 'w-20'}`
+                        }
+                      >
+                        {mobile.status?.toUpperCase()}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{mobile.updatedAt}</TableCell>

@@ -38,7 +38,7 @@ async function exportLiveSnapshot() {
   return {
     version: 2,
     exportedAt: new Date().toISOString(),
-    source: 'SQLite (local)',
+    source: 'Local Storage',
     brands,
     mobiles,
     compatibility,
@@ -55,7 +55,20 @@ export default function BackupPage() {
   const handleCreateBackup = useCallback(async () => {
     setIsCreatingBackup(true)
     const snapshot = await exportLiveSnapshot()
-    const name = `Full Backup ${new Date().toISOString().split('T')[0]}`
+    const now = new Date()
+
+    const date = now.toLocaleDateString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+    })
+
+    const time = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    })
+    const name = `Full Backup ${date} ${time}`
     downloadJson(snapshot, `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`)
 
     const newBackup: BackupRecord = {
@@ -97,11 +110,6 @@ export default function BackupPage() {
 
       const diff = target.getTime() - now.getTime();
 
-      // Auto-trigger if we hit the time (within the 1-second interval)
-      if (diff <= 1000 && diff > 0) {
-        handleCreateBackup();
-      }
-
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((diff % (1000 * 60)) / 1000);
@@ -115,7 +123,7 @@ export default function BackupPage() {
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [handleCreateBackup]);
+  }, []);
 
   const handleDownload = async (backup: BackupRecord) => {
     const snapshot = await exportLiveSnapshot()
@@ -146,7 +154,8 @@ export default function BackupPage() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Backup & Restore</h1>
-        <p className="text-muted-foreground mt-1">Manage your local SQLite database backups</p>
+        <p className="text-muted-foreground mt-1">Manage your local database backups</p>
+        {/* <p className="text-muted-foreground mt-1">Manage your local SQLite database backups</p> */}
       </div>
 
       {/* Latest Backup Info */}
@@ -183,7 +192,8 @@ export default function BackupPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-base">Create New Backup</CardTitle>
-              <CardDescription>Export a full JSON snapshot of your local SQLite catalog</CardDescription>
+              <CardDescription>Export a full JSON snapshot of your local catalog</CardDescription>
+              {/* <CardDescription>Export a full JSON snapshot of your local SQLite catalog</CardDescription> */}
             </div>
             <div className="text-right flex flex-col items-end">
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -199,7 +209,7 @@ export default function BackupPage() {
             <div className="bg-blue-500/10 rounded-lg p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-muted-foreground">
-                Creates a JSON file downloaded to your computer. The backup contains all brands, mobiles, compatibility groups, and accessories from your local SQLite database.
+                Creates a JSON file downloaded to your computer. The backup contains all brands, mobiles, compatibility groups, and accessories from your local storage.
               </p>
             </div>
 
@@ -297,9 +307,11 @@ export default function BackupPage() {
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div>
               <p className="text-sm font-medium">Storage Type</p>
-              <p className="text-xs text-muted-foreground">Local SQLite database file</p>
+              <p className="text-xs text-muted-foreground">Local database file</p>
+              {/* <p className="text-xs text-muted-foreground">Local SQLite database file</p> */}
             </div>
-            <Badge variant="outline">SQLite</Badge>
+            <Badge variant="outline">Local Storage</Badge>
+            {/* <Badge variant="outline">SQLite</Badge> */}
           </div>
 
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -313,7 +325,7 @@ export default function BackupPage() {
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div>
               <p className="text-sm font-medium">Sync to Cloud</p>
-              <p className="text-xs text-muted-foreground">Use the Sync button in the top bar</p>
+              <p className="text-xs text-muted-foreground">Cloud sync is on the way — stay tuned!</p>
             </div>
             <Badge variant="outline">Optional</Badge>
           </div>

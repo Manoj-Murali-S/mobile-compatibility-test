@@ -53,7 +53,8 @@ export default function OfflineSyncSettings() {
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-lg border bg-background p-3">
             <p className="text-xs text-muted-foreground">Database</p>
-            <p className="mt-1 font-medium">SQLite (local file)</p>
+            <p className="mt-1 font-medium">Local Storage (local file)</p>
+            {/* <p className="mt-1 font-medium">SQLite (local file)</p> */}
           </div>
           <div className="rounded-lg border bg-background p-3">
             <p className="text-xs text-muted-foreground">Pending changes</p>

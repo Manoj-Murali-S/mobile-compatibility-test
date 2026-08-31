@@ -117,7 +117,7 @@ export default function AdminDashboard() {
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Live from SQLite
+                  Live from Local Storage
                 </p>
               </CardContent>
             </Card>
@@ -143,7 +143,8 @@ export default function AdminDashboard() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Storage</p>
-              <p className="text-sm font-medium">SQLite (local file)</p>
+              <p className="text-sm font-medium">Local Storage (local file)</p>
+              {/* <p className="text-sm font-medium">SQLite (local file)</p> */}
             </div>
             <div className="pt-4 border-t">
               <div className="flex items-center justify-between text-xs">

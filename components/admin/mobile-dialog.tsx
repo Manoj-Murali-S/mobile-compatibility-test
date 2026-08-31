@@ -169,16 +169,16 @@ export function MobileDialog({ open, onOpenChange, mobile, onSave }: MobileDialo
                     brands
                       .filter(b => b.name.toLowerCase().includes(formData.brand.toLowerCase()))
                       .map((brand) => (
-                        <div 
-                          key={brand.id} 
-                          className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground text-sm flex items-center gap-2"
+                        <div
+                          key={brand.id}
+                          className="group px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground text-sm flex items-center gap-2"
                           onMouseDown={(e) => {
                             e.preventDefault() // Prevent input blur
                             setFormData({ ...formData, brand: brand.name, brandId: brand.id })
                             setIsBrandDropdownOpen(false)
                           }}
                         >
-                          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-semibold">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-xs font-semibold group-hover:text-[#0088ab]">
                             {brand.name.charAt(0).toUpperCase()}
                           </div>
                           <span>{brand.name}</span>
@@ -235,7 +235,7 @@ export function MobileDialog({ open, onOpenChange, mobile, onSave }: MobileDialo
 
 
           {/* Status */}
-          <div className="space-y-2">
+          {/* <div className="space-y-2">
             <Label htmlFor="status">Status</Label>
 
             <Select
@@ -276,7 +276,7 @@ export function MobileDialog({ open, onOpenChange, mobile, onSave }: MobileDialo
                 </SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </div> */}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">

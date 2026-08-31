@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { RefreshCw, LayoutGrid, List } from 'lucide-react'
+import { RefreshCw, LayoutGrid, List, Loader2, Search } from 'lucide-react'
 import SearchHeader from '@/components/search-header'
 import BrandTabs from '@/components/brand-tabs'
 import MobileGrid from '@/components/mobile-grid'
@@ -17,6 +17,7 @@ import { getMobiles } from '@/lib/repository/mobiles'
 import type { CatalogBrand, CatalogMobile } from '@/lib/catalog-db'
 import { ThemeSwitcher } from '@/components/theme-switcher'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { seedCatalogIfEmpty } from '@/lib/catalog-repository'
 import { useSync } from '@/lib/sync/use-sync'
 
@@ -34,6 +35,10 @@ function HomeContent() {
   const [dynamicBrands, setDynamicBrands] = useState<CatalogBrand[]>([])
   const [dynamicMobiles, setDynamicMobiles] = useState<CatalogMobile[]>([])
   const [loading, setLoading] = useState(true)
+
+  const [globalSearchText, setGlobalSearchText] = useState('')
+  const [localSearchText, setLocalSearchText] = useState(searchParams.get('q') || '')
+  const [isGlobalNavigating, setIsGlobalNavigating] = useState(false)
 
   // Sync hook — provides status bar data and the Sync button handler
   const syncHook = useSync()
@@ -85,22 +90,24 @@ function HomeContent() {
     }
 
     if (q !== lastPushedQ.current) {
+      setLocalSearchText(q)
       setSearchQuery(q)
       lastPushedQ.current = q
     }
   }, [searchParams, dynamicBrands])
 
-  // Debounce updating the URL while typing
+  // Debounce updating the URL and local search
   useEffect(() => {
     const timer = setTimeout(() => {
+      setSearchQuery(localSearchText)
       const currentQ = searchParams.get('q') || ''
-      if (searchQuery !== currentQ) {
-        lastPushedQ.current = searchQuery
-        updateUrl(selectedBrand, searchQuery)
+      if (localSearchText !== currentQ) {
+        lastPushedQ.current = localSearchText
+        updateUrl(selectedBrand, localSearchText)
       }
-    }, 500)
+    }, 300)
     return () => clearTimeout(timer)
-  }, [searchQuery, selectedBrand, searchParams])
+  }, [localSearchText, selectedBrand, searchParams])
 
   // Handle keyboard shortcut for command palette
   useEffect(() => {
@@ -123,8 +130,9 @@ function HomeContent() {
   }
 
   const handleSearch = (query: string) => {
-    setSearchQuery(query)
-    updateUrl(selectedBrand, query)
+    // If they press enter on global search, we don't filter locally anymore.
+    // Instead we could route to a search page, or just do nothing for now.
+    setGlobalSearchText(query)
     if (query.trim() && !recentSearches.includes(query)) {
       setRecentSearches([query, ...recentSearches.slice(0, 4)])
     }
@@ -136,17 +144,25 @@ function HomeContent() {
     const found = dynamicBrands.find(b => b.name === brand)
     setSelectedBrandId(found?.id ?? '')
     setShowRecentSearches(false)
+    setLocalSearchText('')
     setSearchQuery('')
     updateUrl(brand, '')
   }
 
   const handleRecentSearchClick = (search: string) => {
+    setGlobalSearchText(search)
     handleSearch(search)
-    setSearchQuery(search)
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background relative">
+      {isGlobalNavigating && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+          <h2 className="text-xl font-semibold">Loading...</h2>
+        </div>
+      )}
+
       {/* Sync Status Bar (replaces old online/offline banner) */}
       {/* <SyncStatusBar syncHook={syncHook} /> */}
 
@@ -173,9 +189,9 @@ function HomeContent() {
             className="flex-1"
           >
             <SearchHeader
-              value={searchQuery}
+              value={globalSearchText}
               onChange={(value) => {
-                setSearchQuery(value)
+                setGlobalSearchText(value)
                 setShowRecentSearches(value.length > 0)
               }}
               onSearch={handleSearch}
@@ -189,10 +205,11 @@ function HomeContent() {
                 if (suggestion.type === 'brand') {
                   handleBrandSelect(suggestion.text)
                 } else if (suggestion.type === 'device' && suggestion.id) {
+                  setIsGlobalNavigating(true)
                   router.push(`/details?id=${suggestion.id}`)
                 }
               }}
-              onFocusChange={(focused) => setShowRecentSearches(focused && !searchQuery.trim())}
+              onFocusChange={(focused) => setShowRecentSearches(focused && !globalSearchText.trim())}
             />
           </motion.div>
 
@@ -249,26 +266,38 @@ function HomeContent() {
               Find the perfect accessories for your {selectedBrand} mobile device
             </p>
           </div>
-
-          <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border w-fit ml-auto">
-            <Button
-              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="px-3"
-              onClick={() => setViewMode('grid')}
-            >
-              <LayoutGrid className="w-4 h-4 mr-2" />
-              Grid
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="px-3"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="w-4 h-4 mr-2" />
-              List
-            </Button>
+          <div className='flex gap-2 items-center'>
+            <div className="flex-1 max-w-sm ml-auto">
+              <div
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-md bg-white dark:bg-neutral-800 outline-1 -outline-offset-1 outline-slate-300 dark:outline-neutral-700 focus-within:outline-2 focus-within:-outline-offset-2 focus-within:outline-blue-600">
+                <label htmlFor="search" className="sr-only">Search</label>
+                <input type="search" id="search"
+                  className="text-sm text-slate-900 dark:text-slate-50 w-full outline-none" placeholder={`Search ${selectedBrand} mobiles...`}
+                  value={localSearchText}
+                  onChange={(e) => setLocalSearchText(e.target.value)} />
+                <Search className='w-4 h-4 text-slate-400 ml-auto' />
+              </div>
+            </div>
+            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border w-fit ml-auto">
+              <Button
+                variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="px-3"
+                onClick={() => setViewMode('grid')}
+              >
+                <LayoutGrid className="w-4 h-4 mr-2" />
+                Grid
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="px-3"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="w-4 h-4 mr-2" />
+                List
+              </Button>
+            </div>
           </div>
         </motion.div>
 
@@ -288,7 +317,13 @@ function HomeContent() {
           handleBrandSelect(brand)
           setShowCommandPalette(false)
         }}
+        onSelectMobile={(mobileId) => {
+          setIsGlobalNavigating(true)
+          router.push(`/details?id=${mobileId}`)
+          setShowCommandPalette(false)
+        }}
         brands={dynamicBrands.map(b => b.name)}
+        mobiles={dynamicMobiles}
       />
     </main>
   )

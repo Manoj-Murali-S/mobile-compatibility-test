@@ -92,15 +92,16 @@ export default function UsersPage() {
   const handleAddUser = async (email: string, pass: string, role: string) => {
     const api = (window as any).electronAPI
     if (!api) {
-      const id = crypto.randomUUID()
-      const now = new Date().toISOString()
       const response = await fetch('/api/db', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'run',
-          sql: 'INSERT INTO users (id, email, password_hash, name, role, status, created_on, modified_on) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          params: [id, email, 'dev-mock-hash', '', role || 'viewer', 'approved', now, now]
+          action: 'register-user',
+          email,
+          passwordAttempt: pass,
+          role: role || 'viewer',
+          status: 'approved',
+          name: ''
         })
       })
       const data = await response.json()

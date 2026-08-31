@@ -22,8 +22,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Plus, MoreHorizontal, Pencil, Trash2, Loader2, Settings, Tag } from 'lucide-react'
 import { CompatibilityDialog } from '@/components/admin/compatibility-dialog'
-import { getAllCompatibility, deleteCompatibility } from '@/lib/repository/compatibility'
+import { getAllCompatibility, deleteCompatibility, upsertCompatibility } from '@/lib/repository/compatibility'
 import { getMobiles } from '@/lib/repository/mobiles'
+import { getCategories } from '@/lib/repository/categories'
 import type { CatalogCompatibility, CatalogMobile } from '@/lib/catalog-db'
 import { useMemo } from 'react'
 import { useAuth } from '@/lib/auth'
@@ -85,6 +86,48 @@ export default function CompatibilityPage() {
     await loadData()
   }
 
+  const handleGenerateDummyData = async () => {
+    try {
+      setIsLoading(true)
+      const cats = await getCategories()
+      if (cats.length === 0 || mobiles.length === 0) {
+        alert("Please ensure you have at least some mobiles and categories imported first.")
+        setIsLoading(false)
+        return
+      }
+
+      for (let i = 0; i < 10; i++) {
+        const sourceMobile = mobiles[Math.floor(Math.random() * mobiles.length)]
+        const category = cats[Math.floor(Math.random() * cats.length)].name
+        
+        // Pick 2-4 random compatible mobiles
+        const numCompatible = Math.floor(Math.random() * 3) + 2
+        const compatibleIds = new Set<string>()
+        for (let j = 0; j < numCompatible; j++) {
+          const compMobile = mobiles[Math.floor(Math.random() * mobiles.length)]
+          if (compMobile.id !== sourceMobile.id) {
+            compatibleIds.add(compMobile.id)
+          }
+        }
+
+        await upsertCompatibility({
+          id: `dummy-compat-${Date.now()}-${i}`,
+          category,
+          sourceMobileId: sourceMobile.id,
+          compatibleMobileIds: Array.from(compatibleIds),
+          updatedAt: new Date().toISOString()
+        })
+      }
+      
+      await loadData()
+      alert("Successfully generated 10 dummy compatibility records!")
+    } catch (e) {
+      console.error(e)
+      alert("Failed to generate dummy data")
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -96,10 +139,15 @@ export default function CompatibilityPage() {
           </p>
         </div>
         {!isViewer && (
-          <Button onClick={handleAddRule} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Add Rule
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleGenerateDummyData} variant="outline" className="gap-2">
+              Generate 10 Dummy Rules
+            </Button>
+            <Button onClick={handleAddRule} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Rule
+            </Button>
+          </div>
         )}
       </div>
 

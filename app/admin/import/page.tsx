@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Upload, CheckCircle, AlertCircle, File, Download } from 'lucide-react'
 import { downloadImportTemplate } from '@/lib/download-utils'
-import { upsertMobile } from '@/lib/repository/mobiles'
+import { getMobiles, upsertMobile } from '@/lib/repository/mobiles'
 import { getBrands, upsertBrand } from '@/lib/repository/brands'
 
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [previewRows, setPreviewRows] = useState<ImportRow[]>([])
   const [validationErrors, setValidationErrors] = useState<string[]>([])
@@ -43,6 +44,9 @@ export default function ImportPage() {
     try {
       const existingBrands = await getBrands()
       const brandMap = new Map(existingBrands.map(b => [b.name.toLowerCase(), b.id]))
+      
+      const existingMobiles = await getMobiles()
+      const mobileLookup = new Map(existingMobiles.map(m => [`${m.brandId}|${m.model.toLowerCase().trim()}`, m.id]))
 
       for (const row of previewRows) {
         try {
@@ -50,17 +54,21 @@ export default function ImportPage() {
           let brandId = brandMap.get(brandKey)
 
           if (!brandId) {
-            brandId = typeof crypto !== 'undefined' && crypto.randomUUID 
-              ? crypto.randomUUID() 
+            brandId = typeof crypto !== 'undefined' && crypto.randomUUID
+              ? crypto.randomUUID()
               : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
             await upsertBrand({ id: brandId, name: row.brand.trim() })
             brandMap.set(brandKey, brandId)
           }
 
+          const mobileKey = `${brandId}|${row.model.toLowerCase().trim()}`
+          const existingMobileId = mobileLookup.get(mobileKey)
+
           await upsertMobile({
+            id: existingMobileId, // Uses existing ID if found, otherwise generates a new one
             brandId,
             model: row.model,
-            status: 'active',
+            status: row.status ?? 'active',
             updatedAt: new Date().toISOString(),
           })
           success++
@@ -99,16 +107,39 @@ export default function ImportPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* File Input */}
-          <div className="border-2 border-dashed border-border rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:border-accent transition-colors"
+          <div className={`border-2 border-dashed rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer transition-colors ${
+              isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-accent'
+            }`}
             onClick={() => document.getElementById('file-input')?.click()}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setIsDragging(true)
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault()
+              setIsDragging(false)
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              setIsDragging(false)
+              const droppedFile = e.dataTransfer.files?.[0]
+              if (droppedFile) {
+                setFile(droppedFile)
+                setImportResult(null)
+                parseMobileWorkbook(droppedFile).then(({ rows, errors }) => {
+                  setPreviewRows(rows)
+                  setValidationErrors(errors)
+                })
+              }
+            }}
           >
-            <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+            <Upload className={`w-8 h-8 mb-2 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
             <p className="text-sm font-medium">Drag & drop or click to select</p>
-            <p className="text-xs text-muted-foreground mt-1">XLSX, XLS files up to 10 MB</p>
+            <p className="text-xs text-muted-foreground mt-1">XLSX, XLS, CSV files up to 10 MB</p>
             <input
               id="file-input"
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx,.xls,.csv"
               onChange={handleFileChange}
               className="hidden"
             />
@@ -152,18 +183,19 @@ export default function ImportPage() {
             disabled={!file || isImporting}
             className="w-full"
           >
-            {isImporting ? 'Importing to SQLite…' : 'Import Data'}
+            {isImporting ? 'Importing to Local Storage…' : 'Import Data'}
           </Button>
         </CardContent>
       </Card>
-
+          
       {/* Import Result */}
       {importResult && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-green-600" />
-              Import Completed — Saved to Local SQLite
+              Import Completed — Saved to Local Storage
+              {/* Import Completed — Saved to Local SQLite */}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -187,7 +219,7 @@ export default function ImportPage() {
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-medium">Saved locally to SQLite</p>
+                    <p className="text-sm font-medium">Saved to Local Storage</p>
                     <p className="text-xs text-muted-foreground">
                       Data is now stored in your local database. Use the Sync button to push changes to Supabase when online.
                     </p>
