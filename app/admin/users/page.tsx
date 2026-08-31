@@ -115,7 +115,7 @@ export default function UsersPage() {
       fetchUsers()
       return
     }
-    const res = await api.auth.register(email, pass, role)
+    const res = await api.auth.register(email, pass, '', role)
     if (!res.ok) {
       let errorMsg = res.error
       if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
