@@ -12,7 +12,7 @@ import { AlertCircle as AlertIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 export default function SettingsPage() {
-  const [trialEndDate, setTrialEndDate] = useState<string>('')
+  const [trialEndDate, setTrialEndDate] = useState<string>('2027-01-01')
   const [trialAlertDays, setTrialAlertDays] = useState<string>('5')
   const [isSaving, setIsSaving] = useState(false)
 
