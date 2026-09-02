@@ -16,7 +16,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
 
 export function TrialAlert() {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
   const [daysLeft, setDaysLeft] = useState<number | null>(null)
   const [isExpired, setIsExpired] = useState(false)
   const [clickCount, setClickCount] = useState(0)
@@ -103,7 +103,7 @@ export function TrialAlert() {
           <DialogContent className={isExpired ? "border-destructive sm:max-w-md [&>button]:hidden" : "sm:max-w-md"}>
             <DialogHeader>
               <div className="flex items-center gap-3">
-                <AlertCircle 
+                <AlertCircle
                   className={isExpired ? "text-destructive h-6 w-6 cursor-pointer" : "text-amber-500 h-6 w-6"}
                   onClick={() => {
                     if (isExpired) {
