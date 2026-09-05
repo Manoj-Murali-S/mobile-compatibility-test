@@ -1,11 +1,12 @@
 /**
  * lib/repository/brands.ts
- * Brand CRUD — SQLite (Electron IPC) or Dexie (browser fallback).
+ * Brand CRUD — SQLite (Electron IPC) | Supabase (web app) | Dexie (fallback).
  */
 
 import { catalogDb, type CatalogBrand } from '../catalog-db'
 import { enqueueSyncItem } from './sync-queue'
-import { getDb, isElectron } from '../sqlite/db'
+import { getDb, isElectron, isWebApp } from '../sqlite/db'
+import { requireSupabase } from '../sync/supabase-client'
 import { getCurrentUserId } from '../auth'
 
 const now = () => new Date().toISOString()
@@ -29,6 +30,17 @@ export async function getBrands(): Promise<CatalogBrand[]> {
     )
     return rows.map(rowToBrand)
   }
+
+  if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { data, error } = await supabase
+      .from('catalog_brands')
+      .select('*')
+      .order('name', { ascending: true })
+    if (error) throw error
+    return (data ?? []).map(rowToBrand)
+  }
+
   const list = await catalogDb.brands.orderBy('name').toArray()
   return list
 }
@@ -43,6 +55,18 @@ export async function getBrandById(id: string): Promise<CatalogBrand | undefined
     )
     return row ? rowToBrand(row) : undefined
   }
+
+  if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { data, error } = await supabase
+      .from('catalog_brands')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (error) return undefined
+    return data ? rowToBrand(data) : undefined
+  }
+
   const brand = await catalogDb.brands.get(id)
   return brand
 }
@@ -58,6 +82,7 @@ export async function upsertBrand(
     createdBy: null,
     modifiedBy: null,
   } as CatalogBrand
+
   if (isElectron()) {
     await getDb().runAsync(
       `INSERT INTO catalog_brands (id, name, logo, status, created_at, updated_at, created_by, modified_by, created_on, modified_on)
@@ -79,9 +104,20 @@ export async function upsertBrand(
         record.updatedAt,
       ]
     )
+  } else if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { error } = await supabase.from('catalog_brands').upsert({
+      id: record.id,
+      name: record.name,
+      logo: record.logo ?? '📱',
+      status: record.status ?? 'active',
+      updated_at: record.updatedAt,
+    })
+    if (error) throw error
   } else {
     await catalogDb.brands.put(record)
   }
+
   if (!skipSync) {
     await enqueueSyncItem('catalog_brands', record.id, 'upsert', record)
   }
@@ -90,6 +126,10 @@ export async function upsertBrand(
 export async function deleteBrand(id: string): Promise<void> {
   if (isElectron()) {
     await getDb().runAsync('DELETE FROM catalog_brands WHERE id = ?', [id])
+  } else if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { error } = await supabase.from('catalog_brands').delete().eq('id', id)
+    if (error) throw error
   } else {
     await catalogDb.brands.delete(id)
   }
@@ -101,5 +141,15 @@ export async function getBrandCount(): Promise<number> {
     const row = await getDb().getAsync<{ count: number }>('SELECT COUNT(*) as count FROM catalog_brands')
     return row?.count ?? 0
   }
+
+  if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { count, error } = await supabase
+      .from('catalog_brands')
+      .select('id', { count: 'exact', head: true })
+    if (error) throw error
+    return count ?? 0
+  }
+
   return catalogDb.brands.count()
 }

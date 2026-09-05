@@ -1,6 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 
-export type CatalogBrand = { id: string; name: string; logo?: string; updatedAt: string }
+export type CatalogBrand = { id: string; name: string; logo?: string; status?: string; updatedAt: string }
 export type CatalogMobile = { id: string; model: string; brandId: string; image?: string; status?: string; updatedAt: string }
 export type CatalogCompatibility = { id: string; category: string; sourceMobileId: string; compatibleMobileIds: string[]; updatedAt: string }
 export type CatalogAccessory = { id: string; category: string; name: string; compatibleMobileIds: string[]; updatedAt: string }

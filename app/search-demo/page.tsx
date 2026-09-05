@@ -44,7 +44,7 @@ export default function SearchDemoPage() {
     async function loadMobiles() {
       try {
         const data = await getMobiles();
-        const filtered = data.filter(d => d.brand === selectedBrand);
+        const filtered = data.filter(d => (d as any).brandName === selectedBrand);
         if (mounted) {
           setBrandDevices(filtered);
         }
@@ -60,7 +60,7 @@ export default function SearchDemoPage() {
   const searchItems = brandDevices.map(device => ({
     id: device.id,
     name: device.model,
-    brand: device.brand,
+    brand: (device as any).brandName,
   }));
 
   return (

@@ -343,6 +343,15 @@ function ensureDefaultAdmin(database: any) {
 }
 
 export async function POST(req: NextRequest) {
+  // On Vercel (cloud), this route is not available.
+  // All data goes through Supabase directly from the client repositories.
+  if (process.env.VERCEL || process.env.VERCEL_ENV) {
+    return NextResponse.json(
+      { ok: false, error: 'Local SQLite API is not available on Vercel. Use Supabase instead.' },
+      { status: 503 }
+    )
+  }
+
   try {
     const body = await req.json()
     const { action, sql, params, email, passwordAttempt, role, status, name } = body

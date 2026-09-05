@@ -1,11 +1,12 @@
 /**
  * lib/repository/categories.ts
- * Category CRUD — SQLite (Electron IPC) or Dexie (browser fallback).
+ * Category CRUD — SQLite (Electron IPC) | Supabase (web app) | Dexie (fallback).
  */
 
 import { catalogDb, type CatalogCategory } from '../catalog-db'
 import { enqueueSyncItem } from './sync-queue'
-import { getDb, isElectron } from '../sqlite/db'
+import { getDb, isElectron, isWebApp } from '../sqlite/db'
+import { requireSupabase } from '../sync/supabase-client'
 
 const now = () => new Date().toISOString()
 
@@ -24,7 +25,17 @@ export async function getCategories(): Promise<CatalogCategory[]> {
     return rows.map(rowToCategory)
   }
 
-  // Dexie fallback
+  if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { data, error } = await supabase
+      .from('catalog_categories')
+      .select('*')
+      .order('name', { ascending: true })
+    if (error) throw error
+    return (data ?? []).map(rowToCategory)
+  }
+
+  // Dexie fallback (local dev without Supabase)
   const list = await catalogDb.categories.orderBy('name').toArray()
   if (list.length === 0) {
     const defaults: CatalogCategory[] = [
@@ -59,6 +70,15 @@ export async function upsertCategory(
          updated_at = excluded.updated_at`,
       [record.id, record.name, record.createdAt, record.updatedAt]
     )
+  } else if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { error } = await supabase.from('catalog_categories').upsert({
+      id: record.id,
+      name: record.name,
+      created_at: record.createdAt,
+      updated_at: record.updatedAt,
+    })
+    if (error) throw error
   } else {
     await catalogDb.categories.put(record)
   }
@@ -71,6 +91,10 @@ export async function upsertCategory(
 export async function deleteCategory(id: string, skipSync = false): Promise<void> {
   if (isElectron()) {
     await getDb().runAsync('DELETE FROM catalog_categories WHERE id = ?', [id])
+  } else if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { error } = await supabase.from('catalog_categories').delete().eq('id', id)
+    if (error) throw error
   } else {
     await catalogDb.categories.delete(id)
   }

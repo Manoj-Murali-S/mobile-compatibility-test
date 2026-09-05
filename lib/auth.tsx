@@ -1,10 +1,13 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { getSupabaseClient } from './sync/supabase-client'
+import { isWebApp } from './sqlite/db'
 
 export interface User {
   id: string
   email: string
+  name?: string
   role: 'superadmin' | 'admin' | 'editor' | 'viewer'
   status: 'pending' | 'approved' | 'rejected'
   created_on: string
@@ -26,50 +29,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('mcf_user')
-      if (stored) setUser(JSON.parse(stored))
-    } catch (e) {
-      console.error('Failed to load user from local storage', e)
-    } finally {
-      setIsLoading(false)
+    if (isWebApp()) {
+      // Web App: restore session from Supabase
+      const supabase = getSupabaseClient()
+      if (supabase) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user) {
+            setUser(supabaseUserToAppUser(session.user))
+          }
+          setIsLoading(false)
+        })
+
+        // Keep user in sync when Supabase session changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+          setUser(session?.user ? supabaseUserToAppUser(session.user) : null)
+        })
+        return () => subscription.unsubscribe()
+      } else {
+        setIsLoading(false)
+      }
+    } else {
+      // Electron: restore from localStorage
+      try {
+        const stored = localStorage.getItem('mcf_user')
+        if (stored) setUser(JSON.parse(stored))
+      } catch (e) {
+        console.error('Failed to load user from local storage', e)
+      } finally {
+        setIsLoading(false)
+      }
     }
   }, [])
 
   const signIn = async (email: string, passwordAttempt: string) => {
     try {
-      const api = (window as any).electronAPI
-      if (!api) {
-        // Fallback for browser/dev mode via Next.js API
-        const response = await fetch('/api/db', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'login-user',
-            email,
-            passwordAttempt
-          })
+      // ── Web App path (Supabase Auth) ──────────────────────────────────────
+      if (isWebApp()) {
+        const supabase = getSupabaseClient()
+        if (!supabase) return { error: 'Supabase is not configured for this deployment.' }
+
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password: passwordAttempt,
         })
-        const data = await response.json()
-        if (!data.ok || !data.user) {
-          return { error: data.error || 'Invalid email or password' }
-        }
-        setUser(data.user)
-        localStorage.setItem('mcf_user', JSON.stringify(data.user))
+        if (error) return { error: error.message }
+        if (!data.user) return { error: 'Invalid email or password' }
+
+        const appUser = supabaseUserToAppUser(data.user)
+        setUser(appUser)
         return {}
       }
-      
-      const res = await api.auth.login(email, passwordAttempt)
-      if (!res.ok) {
-        let errorMsg = res.error
-        if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
-          errorMsg = 'Email already exists'
+
+      // ── Electron path (local IPC) ─────────────────────────────────────────
+      const api = (window as any).electronAPI
+      if (api) {
+        const res = await api.auth.login(email, passwordAttempt)
+        if (!res.ok) {
+          let errorMsg = res.error
+          if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
+            errorMsg = 'Email already exists'
+          }
+          return { error: errorMsg }
         }
-        return { error: errorMsg }
+        setUser(res.user)
+        localStorage.setItem('mcf_user', JSON.stringify(res.user))
+        return {}
       }
-      
-      setUser(res.user)
-      localStorage.setItem('mcf_user', JSON.stringify(res.user))
+
+      // ── Local dev fallback (no Electron, no Supabase) ─────────────────────
+      const response = await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login-user', email, passwordAttempt })
+      })
+      if (!response.ok) return { error: 'API not available in this environment.' }
+      const data = await response.json()
+      if (!data.ok || !data.user) return { error: data.error || 'Invalid email or password' }
+      setUser(data.user)
+      localStorage.setItem('mcf_user', JSON.stringify(data.user))
       return {}
     } catch (e: any) {
       return { error: e.message }
@@ -78,50 +115,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, passwordAttempt: string, role: string) => {
     try {
-      const api = (window as any).electronAPI
-      if (!api) {
-        // Fallback for browser/dev mode via Next.js API
-        const response = await fetch('/api/db', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'register-user',
-            email,
-            passwordAttempt,
-            role: (role as any) || 'viewer',
-            status: 'approved',
-            name: ''
-          })
+      // ── Web App path (Supabase Auth) ──────────────────────────────────────
+      if (isWebApp()) {
+        const supabase = getSupabaseClient()
+        if (!supabase) return { error: 'Supabase is not configured for this deployment.' }
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password: passwordAttempt,
+          options: {
+            data: { role: role || 'viewer' }, // stored in auth.users user_metadata
+          },
         })
-        const data = await response.json()
-        if (!data.ok) {
-          let errorMsg = data.error
+        if (error) {
+          if (error.message.includes('already registered')) return { error: 'Email already exists' }
+          return { error: error.message }
+        }
+        if (!data.user) return { error: 'Sign up failed.' }
+
+        const appUser = supabaseUserToAppUser(data.user)
+        setUser(appUser)
+        return {}
+      }
+
+      // ── Electron path (local IPC) ─────────────────────────────────────────
+      const api = (window as any).electronAPI
+      if (api) {
+        const res = await api.auth.register(email, passwordAttempt, role)
+        if (!res.ok) {
+          let errorMsg = res.error
           if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
             errorMsg = 'Email already exists'
           }
           return { error: errorMsg }
         }
-        
-        const newUser = data.user
-        if (newUser.role === 'superadmin' || newUser.status === 'approved') {
-          setUser(newUser)
-          localStorage.setItem('mcf_user', JSON.stringify(newUser))
+        if (res.user.role === 'superadmin' || res.user.status === 'approved') {
+          setUser(res.user)
+          localStorage.setItem('mcf_user', JSON.stringify(res.user))
         }
         return {}
       }
-      
-      const res = await api.auth.register(email, passwordAttempt, role)
-      if (!res.ok) {
-        let errorMsg = res.error
+
+      // ── Local dev fallback ────────────────────────────────────────────────
+      const response = await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'register-user',
+          email,
+          passwordAttempt,
+          role: (role as any) || 'viewer',
+          status: 'approved',
+          name: ''
+        })
+      })
+      if (!response.ok) return { error: 'API not available in this environment.' }
+      const data = await response.json()
+      if (!data.ok) {
+        let errorMsg = data.error
         if (errorMsg.includes('UNIQUE constraint failed: users.email')) {
           errorMsg = 'Email already exists'
         }
         return { error: errorMsg }
       }
-      
-      if (res.user.role === 'superadmin' || res.user.status === 'approved') {
-        setUser(res.user)
-        localStorage.setItem('mcf_user', JSON.stringify(res.user))
+      const newUser = data.user
+      if (newUser.role === 'superadmin' || newUser.status === 'approved') {
+        setUser(newUser)
+        localStorage.setItem('mcf_user', JSON.stringify(newUser))
       }
       return {}
     } catch (e: any) {
@@ -131,7 +191,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = () => {
     setUser(null)
-    localStorage.removeItem('mcf_user')
+    if (isWebApp()) {
+      getSupabaseClient()?.auth.signOut()
+    } else {
+      localStorage.removeItem('mcf_user')
+    }
   }
 
   return (
@@ -157,4 +221,23 @@ export function getCurrentUserId(): string | null {
     // ignore
   }
   return null
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Maps a Supabase auth user to the app's User shape.
+ * Role is read from user_metadata (set during signUp) or defaults to 'viewer'.
+ */
+function supabaseUserToAppUser(supabaseUser: any): User {
+  const meta = supabaseUser.user_metadata ?? {}
+  return {
+    id: supabaseUser.id,
+    email: supabaseUser.email ?? '',
+    name: meta.name ?? meta.full_name ?? '',
+    role: meta.role ?? 'viewer',
+    status: 'approved', // Supabase-authenticated users are considered approved
+    created_on: supabaseUser.created_at ?? new Date().toISOString(),
+    modified_on: supabaseUser.updated_at ?? new Date().toISOString(),
+  }
 }

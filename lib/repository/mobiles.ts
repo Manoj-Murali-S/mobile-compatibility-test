@@ -1,11 +1,12 @@
 /**
  * lib/repository/mobiles.ts
- * Mobile device CRUD — SQLite (Electron IPC) or Dexie (browser fallback).
+ * Mobile device CRUD — SQLite (Electron IPC) | Supabase (web app) | Dexie (fallback).
  */
 
 import { catalogDb, type CatalogMobile } from '../catalog-db'
 import { enqueueSyncItem } from './sync-queue'
-import { getDb, isElectron } from '../sqlite/db'
+import { getDb, isElectron, isWebApp } from '../sqlite/db'
+import { requireSupabase } from '../sync/supabase-client'
 import { getCurrentUserId } from '../auth'
 
 const now = () => new Date().toISOString()
@@ -15,7 +16,7 @@ function rowToMobile(row: any): CatalogMobile {
   return {
     id: row.id,
     brandId: row.brand_id ?? row.brandId,
-    brandName: row.brand_name ?? row.brandName,
+    brandName: row.brand_name ?? row.catalog_brands?.name ?? row.brandName,
     model: row.model,
     image: row.image,
     status: row.status ?? 'active',
@@ -46,6 +47,20 @@ export async function getMobiles(filters?: { brandId?: string }): Promise<Catalo
     return rows.map(rowToMobile)
   }
 
+  if (isWebApp()) {
+    const supabase = requireSupabase()
+    let query = supabase
+      .from('catalog_mobiles')
+      .select('*, catalog_brands(name)')
+      .order('model', { ascending: true })
+    if (filters?.brandId) {
+      query = query.eq('brand_id', filters.brandId)
+    }
+    const { data, error } = await query
+    if (error) throw error
+    return (data ?? []).map(rowToMobile)
+  }
+
   // Dexie
   let list: CatalogMobile[] = []
   if (filters?.brandId) {
@@ -74,6 +89,18 @@ export async function getMobileById(id: string): Promise<CatalogMobile | undefin
     )
     return row ? rowToMobile(row) : undefined
   }
+
+  if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { data, error } = await supabase
+      .from('catalog_mobiles')
+      .select('*, catalog_brands(name)')
+      .eq('id', id)
+      .single()
+    if (error) return undefined
+    return data ? rowToMobile(data) : undefined
+  }
+
   const mobile = await catalogDb.mobiles.get(id)
   if (mobile) {
     const brand = await catalogDb.brands.get(mobile.brandId)
@@ -97,6 +124,20 @@ export async function searchMobiles(query: string, limit = 20): Promise<CatalogM
       [`%${term}%`, limit]
     )
     return rows.map(rowToMobile)
+  }
+
+  if (isWebApp()) {
+    const supabase = requireSupabase()
+    // Fetch all and filter client-side (Supabase ilike works per-column)
+    const { data, error } = await supabase
+      .from('catalog_mobiles')
+      .select('*, catalog_brands(name)')
+      .order('model', { ascending: true })
+    if (error) throw error
+    const allMobiles = (data ?? []).map(rowToMobile)
+    return allMobiles
+      .filter(m => `${(m as any).brandName ?? ''} ${m.model}`.toLowerCase().includes(term))
+      .slice(0, limit)
   }
 
   // Dexie search
@@ -152,6 +193,17 @@ export async function upsertMobile(
         record.updatedAt,
       ]
     )
+  } else if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { error } = await supabase.from('catalog_mobiles').upsert({
+      id: record.id,
+      brand_id: record.brandId,
+      model: record.model,
+      image: record.image ?? null,
+      status: record.status ?? 'active',
+      updated_at: record.updatedAt,
+    })
+    if (error) throw error
   } else {
     await catalogDb.mobiles.put(record)
   }
@@ -165,6 +217,10 @@ export async function upsertMobile(
 export async function deleteMobile(id: string): Promise<void> {
   if (isElectron()) {
     await getDb().runAsync('DELETE FROM catalog_mobiles WHERE id = ?', [id])
+  } else if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { error } = await supabase.from('catalog_mobiles').delete().eq('id', id)
+    if (error) throw error
   } else {
     await catalogDb.mobiles.delete(id)
   }
@@ -176,6 +232,16 @@ export async function getMobileCount(): Promise<number> {
     const row = await getDb().getAsync<{ count: number }>('SELECT COUNT(*) as count FROM catalog_mobiles')
     return row?.count ?? 0
   }
+
+  if (isWebApp()) {
+    const supabase = requireSupabase()
+    const { count, error } = await supabase
+      .from('catalog_mobiles')
+      .select('id', { count: 'exact', head: true })
+    if (error) throw error
+    return count ?? 0
+  }
+
   return catalogDb.mobiles.count()
 }
 
@@ -183,6 +249,21 @@ export async function bulkUpsertMobiles(mobiles: CatalogMobile[]): Promise<void>
   if (isElectron()) {
     for (const mobile of mobiles) {
       await upsertMobile(mobile)
+    }
+  } else if (isWebApp()) {
+    const supabase = requireSupabase()
+    const rows = mobiles.map(m => ({
+      id: m.id,
+      brand_id: m.brandId,
+      model: m.model,
+      image: m.image ?? null,
+      status: m.status ?? 'active',
+      updated_at: m.updatedAt ?? now(),
+    }))
+    const { error } = await supabase.from('catalog_mobiles').upsert(rows)
+    if (error) throw error
+    for (const m of mobiles) {
+      await enqueueSyncItem('catalog_mobiles', m.id, 'upsert', m)
     }
   } else {
     await catalogDb.mobiles.bulkPut(mobiles)

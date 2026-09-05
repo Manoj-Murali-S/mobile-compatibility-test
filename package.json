@@ -16,8 +16,8 @@
     "electron:dev": "concurrently --kill-other \"next dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
     "electron:build": "next build && tsc -p tsconfig.electron.json",
     "electron:start": "cross-env NODE_ENV=production electron .",
-    "electron:package": "npm run electron:build && electron-forge package --out release",
-    "electron:make": "npm run electron:build && electron-forge make --out release"
+    "electron:package": "pnpm run electron:build && electron-forge package --out release",
+    "electron:make": "pnpm run electron:build && electron-forge make --out release"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

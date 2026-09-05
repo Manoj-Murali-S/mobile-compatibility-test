@@ -32,6 +32,14 @@ function isElectronRenderer(): boolean {
   )
 }
 
+/**
+ * True when the code is running in a plain web browser (not inside Electron).
+ * Repositories use this to route data operations to Supabase instead of Dexie.
+ */
+export function isWebApp(): boolean {
+  return typeof window !== 'undefined' && !isElectronRenderer()
+}
+
 // ─── IPC-based adapter (Electron renderer) ───────────────────────────────────
 
 /**
@@ -163,9 +171,10 @@ export function getDb(): AsyncSqliteAdapter {
 
   if (isElectronRenderer()) {
     _adapter = new IpcSqliteAdapter()
-  } else if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    _adapter = new HttpSqliteAdapter()
   } else {
+    // In a browser (web app or dev preview), data goes through Supabase at the
+    // repository layer. getDb() is only called via isElectron() guards, so this
+    // path is never reached in practice. Return a no-op to be safe.
     _adapter = new MemoryAdapter() as unknown as AsyncSqliteAdapter
   }
 
@@ -176,7 +185,7 @@ export function resetDb(): void {
   _adapter = null
 }
 
-/** Convenience: true when running inside Electron or in browser dev with API proxy */
+/** Convenience: true when running inside Electron (desktop app). */
 export function isElectron(): boolean {
-  return isElectronRenderer() || (typeof window !== 'undefined' && process.env.NODE_ENV === 'development')
+  return isElectronRenderer()
 }
