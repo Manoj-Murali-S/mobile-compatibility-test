@@ -5,6 +5,7 @@ import { useAuth, User } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { UserDialog } from '@/components/admin/user-dialog'
+import { isWebApp } from '@/lib/sqlite/db'
 
 export default function UsersPage() {
   const { user } = useAuth()
@@ -15,7 +16,11 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
 
   useEffect(() => {
-    fetchUsers()
+    if (!isWebApp()) {
+      fetchUsers()
+    } else {
+      setLoading(false)
+    }
   }, [])
 
   const fetchUsers = async () => {
@@ -23,6 +28,8 @@ export default function UsersPage() {
       setLoading(true)
       const api = (window as any).electronAPI
       if (!api) {
+        // This fallback should rarely be hit now that isWebApp is checked above,
+        // but it remains for pure local dev server scenarios without Electron.
         const response = await fetch('/api/db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -151,6 +158,18 @@ export default function UsersPage() {
 
   if (user?.role !== 'superadmin' && user?.role !== 'admin') {
     return <div className="p-8"><p>You do not have permission to view this page.</p></div>
+  }
+
+  if (isWebApp()) {
+    return (
+      <div className="p-8 max-w-2xl mx-auto text-center mt-12">
+        <h1 className="text-2xl font-semibold mb-4">User Management</h1>
+        <p className="text-muted-foreground">
+          In the cloud version, user authentication is securely handled by Supabase. 
+          To add, edit, or manage users and roles, please use the <strong>Authentication &gt; Users</strong> tab in your <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-primary hover:underline">Supabase Dashboard</a>.
+        </p>
+      </div>
+    )
   }
 
   if (loading) return <div className="p-8">Loading users...</div>
