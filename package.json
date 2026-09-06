@@ -14,7 +14,7 @@
     "electron:compile": "tsc -p tsconfig.electron.json",
     "electron:rebuild": "electron-rebuild -f -w better-sqlite3",
     "electron:dev": "concurrently --kill-other \"next dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "next build && tsc -p tsconfig.electron.json",
+    "electron:build": "cross-env BUILD_MODE=export next build && tsc -p tsconfig.electron.json",
     "electron:start": "cross-env NODE_ENV=production electron .",
     "electron:package": "pnpm run electron:build && electron-forge package --out release",
     "electron:make": "pnpm run electron:build && electron-forge make --out release"

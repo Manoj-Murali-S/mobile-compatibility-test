@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { UserDialog } from '@/components/admin/user-dialog'
 import { isWebApp } from '@/lib/sqlite/db'
+import { getSupabaseClient } from '@/lib/sync/supabase-client'
 
 export default function UsersPage() {
   const { user } = useAuth()
@@ -16,20 +17,40 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null)
 
   useEffect(() => {
-    if (!isWebApp()) {
-      fetchUsers()
-    } else {
-      setLoading(false)
-    }
+    fetchUsers()
   }, [])
+
+  const getAuthToken = async () => {
+    if (!isWebApp()) return null
+    const supabase = getSupabaseClient()
+    if (!supabase) return null
+    const { data } = await supabase.auth.getSession()
+    return data.session?.access_token || null
+  }
 
   const fetchUsers = async () => {
     try {
       setLoading(true)
+      
+      if (isWebApp()) {
+        const token = await getAuthToken()
+        const response = await fetch('/api/auth/admin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ action: 'getUsers' })
+        })
+        const resData = await response.json()
+        if (resData.ok) setUsers(resData.data)
+        else setError(resData.error)
+        return
+      }
+
       const api = (window as any).electronAPI
       if (!api) {
-        // This fallback should rarely be hit now that isWebApp is checked above,
-        // but it remains for pure local dev server scenarios without Electron.
+        // Fallback for pure local dev server scenarios without Electron
         const response = await fetch('/api/db', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -54,6 +75,22 @@ export default function UsersPage() {
   }
 
   const updateUser = async (id: string, data: { status?: string, role?: string }) => {
+    if (isWebApp()) {
+      const token = await getAuthToken()
+      const response = await fetch('/api/auth/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ action: 'updateUser', id, updates: data })
+      })
+      const resData = await response.json()
+      if (!resData.ok) throw new Error(resData.error)
+      fetchUsers()
+      return
+    }
+
     const api = (window as any).electronAPI
     if (!api) {
       const updates = []
@@ -97,6 +134,27 @@ export default function UsersPage() {
   }
 
   const handleAddUser = async (email: string, pass: string, role: string) => {
+    if (isWebApp()) {
+      const token = await getAuthToken()
+      const response = await fetch('/api/auth/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          action: 'createUser',
+          email,
+          passwordAttempt: pass,
+          role: role || 'viewer'
+        })
+      })
+      const data = await response.json()
+      if (!data.ok) throw new Error(data.error)
+      fetchUsers()
+      return
+    }
+
     const api = (window as any).electronAPI
     if (!api) {
       const response = await fetch('/api/db', {
@@ -158,18 +216,6 @@ export default function UsersPage() {
 
   if (user?.role !== 'superadmin' && user?.role !== 'admin') {
     return <div className="p-8"><p>You do not have permission to view this page.</p></div>
-  }
-
-  if (isWebApp()) {
-    return (
-      <div className="p-8 max-w-2xl mx-auto text-center mt-12">
-        <h1 className="text-2xl font-semibold mb-4">User Management</h1>
-        <p className="text-muted-foreground">
-          In the cloud version, user authentication is securely handled by Supabase. 
-          To add, edit, or manage users and roles, please use the <strong>Authentication &gt; Users</strong> tab in your <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-primary hover:underline">Supabase Dashboard</a>.
-        </p>
-      </div>
-    )
   }
 
   if (loading) return <div className="p-8">Loading users...</div>

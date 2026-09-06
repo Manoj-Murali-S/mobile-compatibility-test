@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  output: process.env.BUILD_MODE === 'export' ? 'export' : undefined,
   typescript: {
     ignoreBuildErrors: true,
   },
