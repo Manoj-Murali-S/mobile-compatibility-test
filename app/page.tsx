@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { RefreshCw, LayoutGrid, List, Loader2, Search, BookOpen } from 'lucide-react'
+import { RefreshCw, LayoutGrid, List, Loader2, Search, BookOpen, ShieldCheck } from 'lucide-react'
 import SearchHeader from '@/components/search-header'
 import BrandTabs from '@/components/brand-tabs'
 import MobileGrid from '@/components/mobile-grid'
@@ -39,6 +39,7 @@ function HomeContent() {
   const [globalSearchText, setGlobalSearchText] = useState('')
   const [localSearchText, setLocalSearchText] = useState(searchParams.get('q') || '')
   const [isGlobalNavigating, setIsGlobalNavigating] = useState(false)
+  const [showMobileSearch, setShowMobileSearch] = useState(false)
 
   // Sync hook — provides status bar data and the Sync button handler
   const syncHook = useSync()
@@ -154,6 +155,41 @@ function HomeContent() {
     handleSearch(search)
   }
 
+  const SearchComponent = (
+    <div className="relative w-full">
+      <SearchHeader
+        value={globalSearchText}
+        onChange={(value) => {
+          setGlobalSearchText(value)
+          setShowRecentSearches(value.length > 0)
+        }}
+        onSearch={handleSearch}
+        showCommandPalette={true}
+        onCommandPaletteClick={() => setShowCommandPalette(true)}
+        suggestions={[
+          ...dynamicBrands.map(b => ({ type: 'brand' as const, text: b.name, id: b.id })),
+          ...dynamicMobiles.map((mobile) => ({ type: 'device' as const, text: mobile.model, id: mobile.id })),
+        ]}
+        onSuggestionSelect={(suggestion) => {
+          if (suggestion.type === 'brand') {
+            handleBrandSelect(suggestion.text)
+          } else if (suggestion.type === 'device' && suggestion.id) {
+            setIsGlobalNavigating(true)
+            router.push(`/details?id=${suggestion.id}`)
+          }
+        }}
+        onFocusChange={(focused) => setShowRecentSearches(focused && !globalSearchText.trim())}
+      />
+      {/* Recent Searches Dropdown */}
+      {showRecentSearches && recentSearches.length > 0 && (
+        <RecentSearches
+          searches={recentSearches}
+          onSelect={handleRecentSearchClick}
+        />
+      )}
+    </div>
+  )
+
   return (
     <main className="min-h-screen bg-background relative">
       {isGlobalNavigating && (
@@ -176,67 +212,64 @@ function HomeContent() {
               alt="Cell's and Cell"
               width={110}
               height={44}
-              className="object-contain"
-              style={{ maxHeight: 44 }}
+              className="object-contain w-20 sm:w-[110px] h-auto"
               priority
             />
           </Link>
 
+          {/* Desktop Search */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="flex-1"
+            className="flex-1 hidden md:block"
           >
-            <SearchHeader
-              value={globalSearchText}
-              onChange={(value) => {
-                setGlobalSearchText(value)
-                setShowRecentSearches(value.length > 0)
-              }}
-              onSearch={handleSearch}
-              showCommandPalette={true}
-              onCommandPaletteClick={() => setShowCommandPalette(true)}
-              suggestions={[
-                ...dynamicBrands.map(b => ({ type: 'brand' as const, text: b.name, id: b.id })),
-                ...dynamicMobiles.map((mobile) => ({ type: 'device' as const, text: mobile.model, id: mobile.id })),
-              ]}
-              onSuggestionSelect={(suggestion) => {
-                if (suggestion.type === 'brand') {
-                  handleBrandSelect(suggestion.text)
-                } else if (suggestion.type === 'device' && suggestion.id) {
-                  setIsGlobalNavigating(true)
-                  router.push(`/details?id=${suggestion.id}`)
-                }
-              }}
-              onFocusChange={(focused) => setShowRecentSearches(focused && !globalSearchText.trim())}
-            />
+            {SearchComponent}
           </motion.div>
 
-          {/* Recent Searches Dropdown */}
-          {showRecentSearches && recentSearches.length > 0 && (
-            <RecentSearches
-              searches={recentSearches}
-              onSelect={handleRecentSearchClick}
-            />
-          )}
-
           {/* Links */}
-          <div className="ml-4 flex items-center gap-2">
+          <div className="ml-2 sm:ml-4 flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Mobile Search Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              onClick={() => setShowMobileSearch(!showMobileSearch)}
+              title="Search"
+            >
+              <Search className="w-5 h-5" />
+            </Button>
+
             <ThemeSwitcher />
+            
             <Link href="/user-manual">
-              <Button variant="ghost" size="sm" className="hidden sm:flex">
+              <Button variant="ghost" size="sm" className="hidden sm:flex" title="User Manual">
                 <BookOpen className="w-4 h-4 mr-2" />
                 User Manual
               </Button>
+              <Button variant="ghost" size="icon" className="flex sm:hidden" title="User Manual">
+                <BookOpen className="w-4 h-4" />
+              </Button>
             </Link>
+            
             <Link href="/admin">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="hidden sm:flex" title="Admin Dashboard">
+                <ShieldCheck className="w-4 h-4 mr-2" />
                 Admin Dashboard
+              </Button>
+              <Button variant="outline" size="icon" className="flex sm:hidden" title="Admin Dashboard">
+                <ShieldCheck className="w-4 h-4" />
               </Button>
             </Link>
           </div>
         </div>
+
+        {/* Mobile Search Accordion */}
+        {showMobileSearch && (
+          <div className="md:hidden border-t border-border bg-background p-4 shadow-sm">
+            {SearchComponent}
+          </div>
+        )}
       </header>
 
       {/* Brand Tabs */}
