@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { RefreshCw, LayoutGrid, List, Loader2, Search } from 'lucide-react'
+import { RefreshCw, LayoutGrid, List, Loader2, Search, BookOpen } from 'lucide-react'
 import SearchHeader from '@/components/search-header'
 import BrandTabs from '@/components/brand-tabs'
 import MobileGrid from '@/components/mobile-grid'
@@ -223,12 +223,13 @@ function HomeContent() {
 
           {/* Links */}
           <div className="ml-4 flex items-center gap-2">
-            {/* <Link href="/search-demo">
-              <Button variant="outline" size="sm">
-                Advanced Search
-              </Button>
-            </Link> */}
             <ThemeSwitcher />
+            <Link href="/user-manual">
+              <Button variant="ghost" size="sm" className="hidden sm:flex">
+                <BookOpen className="w-4 h-4 mr-2" />
+                User Manual
+              </Button>
+            </Link>
             <Link href="/admin">
               <Button variant="outline" size="sm">
                 Admin Dashboard
