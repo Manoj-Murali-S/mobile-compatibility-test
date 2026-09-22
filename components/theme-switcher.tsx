@@ -3,7 +3,7 @@
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 
-export function ThemeSwitcher() {
+export function ThemeSwitcher({ isCollapsed = false }: { isCollapsed?: boolean }) {
   const [mounted, setMounted] = useState(false)
   const { theme, setTheme } = useTheme()
 
@@ -24,7 +24,7 @@ export function ThemeSwitcher() {
     <>
       {/* Mobile single toggle */}
       <button
-        className="flex sm:hidden items-center justify-center rounded-full p-2 bg-gray-950/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+        className={`items-center justify-center rounded-full p-2 bg-gray-950/5 dark:bg-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors ${isCollapsed ? 'flex' : 'flex sm:hidden'}`}
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         aria-label="Toggle theme"
       >
@@ -83,7 +83,7 @@ export function ThemeSwitcher() {
 
       {/* Desktop 3-way toggle */}
       <div
-        className="relative z-0 hidden sm:inline-grid grid-cols-3 gap-0.5 rounded-full bg-gray-950/5 p-0.75 text-gray-950 dark:bg-white/10 dark:text-white"
+        className={`relative z-0 grid-cols-3 gap-0.5 rounded-full bg-gray-950/5 p-0.75 text-gray-950 dark:bg-white/10 dark:text-white ${isCollapsed ? 'hidden' : 'hidden sm:inline-grid'}`}
         role="radiogroup"
       >
         <button

@@ -29,20 +29,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
+
     if (isWebApp()) {
       // Web App: restore session from Supabase
       const supabase = getSupabaseClient()
       if (supabase) {
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session?.user) {
-            setUser(supabaseUserToAppUser(session.user))
+            const lastSignIn = session.user.last_sign_in_at
+            if (lastSignIn && Date.now() - new Date(lastSignIn).getTime() > FOUR_DAYS_MS) {
+              supabase.auth.signOut()
+              setUser(null)
+            } else {
+              setUser(supabaseUserToAppUser(session.user))
+            }
           }
           setIsLoading(false)
         })
 
         // Keep user in sync when Supabase session changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          setUser(session?.user ? supabaseUserToAppUser(session.user) : null)
+          if (session?.user) {
+            const lastSignIn = session.user.last_sign_in_at
+            if (lastSignIn && Date.now() - new Date(lastSignIn).getTime() > FOUR_DAYS_MS) {
+              supabase.auth.signOut()
+              setUser(null)
+            } else {
+              setUser(supabaseUserToAppUser(session.user))
+            }
+          } else {
+            setUser(null)
+          }
         })
         return () => subscription.unsubscribe()
       } else {
@@ -52,7 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Electron: restore from localStorage
       try {
         const stored = localStorage.getItem('mcf_user')
-        if (stored) setUser(JSON.parse(stored))
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          const loginTime = parsed._loginTime
+          if (loginTime && Date.now() - loginTime > FOUR_DAYS_MS) {
+            localStorage.removeItem('mcf_user')
+            setUser(null)
+          } else {
+            setUser(parsed)
+          }
+        }
       } catch (e) {
         console.error('Failed to load user from local storage', e)
       } finally {
@@ -92,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { error: errorMsg }
         }
         setUser(res.user)
-        localStorage.setItem('mcf_user', JSON.stringify(res.user))
+        localStorage.setItem('mcf_user', JSON.stringify({ ...res.user, _loginTime: Date.now() }))
         return {}
       }
 
@@ -106,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json()
       if (!data.ok || !data.user) return { error: data.error || 'Invalid email or password' }
       setUser(data.user)
-      localStorage.setItem('mcf_user', JSON.stringify(data.user))
+      localStorage.setItem('mcf_user', JSON.stringify({ ...data.user, _loginTime: Date.now() }))
       return {}
     } catch (e: any) {
       return { error: e.message }
@@ -151,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (res.user.role === 'superadmin' || res.user.status === 'approved') {
           setUser(res.user)
-          localStorage.setItem('mcf_user', JSON.stringify(res.user))
+          localStorage.setItem('mcf_user', JSON.stringify({ ...res.user, _loginTime: Date.now() }))
         }
         return {}
       }
@@ -181,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newUser = data.user
       if (newUser.role === 'superadmin' || newUser.status === 'approved') {
         setUser(newUser)
-        localStorage.setItem('mcf_user', JSON.stringify(newUser))
+        localStorage.setItem('mcf_user', JSON.stringify({ ...newUser, _loginTime: Date.now() }))
       }
       return {}
     } catch (e: any) {
